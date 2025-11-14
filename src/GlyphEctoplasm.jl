@@ -36,6 +36,8 @@ using GlyphEctoplasm
 - `template_css` - CSS template
 """
 
+# TODO: make the template files constants
+
 module GlyphEctoplasm
 
 # External dependencies
