@@ -44,6 +44,7 @@ next_idx = process_multi_motifs!(df, config, json_motifs, html_dict; motif_size=
 # Render
 render_and_save_outputs!(json_motifs, html_dict, 1; 
     html_template=html_template_unified, 
+    script_template=script_template,
     save_path="tmp", 
     use_unified=true)
 ```

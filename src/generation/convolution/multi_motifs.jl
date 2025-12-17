@@ -81,7 +81,7 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
     # Build mode prefix with group_id
     mode_prefix = isempty(group_id) ? "mode_" : "mode_$(group_id)_"
 
-    for (i, k) in enumerate(sorted_keys)
+    @showprogress for (i, k) in enumerate(sorted_keys)
         idx = start_idx + i - 1
         mode_str = mode_prefix * string(idx)
         k_mode_str = get_k_mode_str(k)
