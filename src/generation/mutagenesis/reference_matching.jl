@@ -91,7 +91,8 @@ function obtain_count_and_reference_matrices(sorted_keys, gdf, data, reference_s
     filter_len > 0 || throw(ArgumentError("filter_len must be positive"))
     isempty(mp_syms) && throw(ArgumentError("mp_syms cannot be empty"))
     
-    X = data.X
+    # X = data.X
+    X = data.onehot_sequences
     offset = data.prefix_offset
     key_type = eltype(sorted_keys)
     n_motifs = length(mp_syms)

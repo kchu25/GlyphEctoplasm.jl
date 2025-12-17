@@ -59,7 +59,8 @@ function build_count_matrices_and_highlight(gdf_d::GroupedDataFrame,
          data, motif_size::Int, 
          filter_len::Int, ::Type{T}) where T<:AbstractFloat
 
-    X = data.X
+    # X = data.X
+    X = data.onehot_sequences
     get_num_cols(mode) = sum(mode) + motif_size * filter_len
     
     # Pre-allocate dict with known size
