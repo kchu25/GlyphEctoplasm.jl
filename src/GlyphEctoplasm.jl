@@ -79,6 +79,12 @@ include(joinpath("core", "path_utils.jl"))
 include(joinpath("generation", "generation.jl"))
 
 # =============================================================================
+# Rendering 
+# =============================================================================
+include("run_thru_conv.jl")
+include("run_thru_mut.jl")
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -97,6 +103,9 @@ export render_and_save_outputs!
 
 # Template constants
 export html_template_unified, script_template, template_css
+
+# Rendering
+export plot_motifs_conv_case, plot_motifs_mut_case
 
 println("✓ Render module loaded successfully")
 
