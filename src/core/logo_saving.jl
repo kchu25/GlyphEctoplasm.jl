@@ -238,18 +238,26 @@ function build_motif_windows(d, motif_size::Integer, filter_len::Integer;
     n = nrow(d)
     m = length(pos_cols)
 
-    # snapshot columns for fast access
-    pos_arrays = [d[!, c] for c in pos_cols]
-    idx_col = d[!, :data_pt_index]
-
+    # Pre-compute filter_len_minus_1 to avoid repeated subtraction
+    filter_span = filter_len - 1
+    
+    # Pre-allocate with exact size
     total = n * m
     flat_windows = Vector{NTuple{4,Int}}(undef, total)
+    
+    # Cache data_pt_index as Vector{Int} to avoid repeated conversions
+    idx_col = Vector{Int}(d[!, :data_pt_index])
+    
+    # Pre-convert position columns to Vector{Int} to avoid repeated Int() calls
+    pos_arrays = [Vector{Int}(d[!, c]) for c in pos_cols]
+    
+    # Iterate with linear indexing (faster than nested loops)
     p = 1
     @inbounds for i in 1:n
-        didx = Int(idx_col[i])
+        didx = idx_col[i]
         for j in 1:m
-            pos = Int(pos_arrays[j][i]) + offset
-            flat_windows[p] = (didx, pos, pos + filter_len - 1, 0)
+            pos = pos_arrays[j][i] + offset
+            flat_windows[p] = (didx, pos, pos + filter_span, 0)
             p += 1
         end
     end
