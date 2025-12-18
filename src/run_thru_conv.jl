@@ -1,10 +1,12 @@
 const motif_names = ["pairs", "triplets", "quadruplets", "quintuplets"]
 
-function plot_motifs_conv_case(data, m, motif_sizes, 
+function plot_motifs_conv_case(data, m, 
         contributions_df_filtered, dfs; 
         dpi=65, save_path="tmp", xlim=(-2,2), 
         page_title="n/a"
         );
+
+    motif_sizes = collect(2:(length(dfs) + 1))
 
     config = ConvMotifConfig(data; 
         filter_len=m.hp.pfm_len, dpi=dpi, save_path=save_path, xlim=xlim)
