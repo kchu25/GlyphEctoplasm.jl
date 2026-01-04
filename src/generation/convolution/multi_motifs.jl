@@ -9,14 +9,15 @@ Process one multi-motif variant (pair/triplet/etc): save files with highlighting
 Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 """
 function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d_key, 
-        pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig;
-        save_folder_motif, motif_type_subdir, relaxed_median)
+        pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig; 
+        save_folder_motif, motif_type_subdir, relaxed_median, 
+        rna=false)
     
     d_str = get_d_str(d_key)
     paths = build_motif_paths(d_str, save_folder_motif, motif_type_subdir)
 
     # Save logo and influence plot (using config parameters)
-    save_motif_logo(pfm, paths.png.abs, median_val; dpi=config.dpi, alpha=config.alpha, highlighted_regions=highlight_region)
+    save_motif_logo(pfm, paths.png.abs, median_val; dpi=config.dpi, alpha=config.alpha, highlighted_regions=highlight_region, rna=rna)
     save_influence_plot(banzhafs, paths.influence.abs; highlighted_regions=highlight_region, xlim=config.xlim)
     
     # Save positional info
@@ -64,7 +65,8 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
         save_folder = nothing,
         group_id::String = "",
         button_text::String = "Multi-Motifs",
-        start_idx::Int = 1
+        start_idx::Int = 1,
+        rna=false
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
     df_idx = motif_size - 1
@@ -115,7 +117,7 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
                 list_of_banzhafs_here[d_key], config;
                 save_folder_motif=save_folder_motif, 
                 motif_type_subdir=joinpath(motif_type, k_mode_str),
-                relaxed_median=relaxed_median_val)
+                relaxed_median=relaxed_median_val, rna=rna)
         end
         
         # Populate HTML dict with first variant

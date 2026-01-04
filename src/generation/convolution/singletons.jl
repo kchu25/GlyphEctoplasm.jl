@@ -8,15 +8,17 @@ Singleton motif processing for convolution-based analysis.
 Process one singleton motif: save files, build metadata, and register in JSON/HTML dicts.
 Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 """
-function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_row, config::ConvMotifConfig;
+function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
         save_folder, motif_type, median_val, count_val, banzhafs,
-        mode_prefix="mode_", group_id="", button_text="Singleton Motifs")
+        mode_prefix="mode_", group_id="", button_text="Singleton Motifs", 
+        rna=false
+        )
     
     name_base = string(k.filter_index)
     paths = build_motif_paths(name_base, save_folder, motif_type)
 
     # Save logo and influence plot (using config parameters)
-    save_motif_logo(pfm, paths.png.abs, median_val; dpi=config.dpi, alpha=config.alpha, highlighted_regions=nothing)
+    save_motif_logo(pfm, paths.png.abs, median_val; dpi=config.dpi, alpha=config.alpha, highlighted_regions=nothing, rna=rna)
     save_influence_plot(banzhafs, paths.influence.abs; highlighted_regions=nothing, xlim=config.xlim)
     
     # Save positional info
@@ -64,7 +66,8 @@ function process_singletons!(contributions_df, config::ConvMotifConfig, json_mot
         group_id::String = "",
         button_text::String = "Singleton Motifs",
         start_idx::Int = 1,
-        pareto_rank = nothing
+        pareto_rank = nothing,
+        rna=false,
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
     mkpath(save_folder)
@@ -85,7 +88,7 @@ function process_singletons!(contributions_df, config::ConvMotifConfig, json_mot
         process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_filters[k], config;
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
-            mode_prefix=mode_prefix, group_id=group_id, button_text=button_text)
+            mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna)
     end
     
     # Return next available index

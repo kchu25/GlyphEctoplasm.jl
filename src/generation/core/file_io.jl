@@ -45,12 +45,18 @@ end
 
 Save motif logo plot as PNG.
 """
-function save_motif_logo(pfm, png_path, median_val; dpi=65, alpha=1.0, highlighted_regions=nothing)
+function save_motif_logo(pfm, png_path, median_val; dpi=65, alpha=1.0, highlighted_regions=nothing, 
+    rna=false)
     if highlighted_regions === nothing
-        save_logoplot(pfm, png_path; dpi=dpi, alpha=alpha, uniform_color=false, pos=median_val > 0)
+        save_logoplot(pfm, png_path; 
+            dpi=dpi, alpha=alpha, uniform_color=false, pos=median_val > 0,
+            rna=rna
+            )
     else
         save_logoplot(pfm, png_path; dpi=dpi, alpha=alpha, uniform_color=false, 
-                     pos=median_val > 0, highlighted_regions=highlighted_regions)
+            pos=median_val > 0, highlighted_regions=highlighted_regions,
+            rna=rna
+            )
     end
 end
 

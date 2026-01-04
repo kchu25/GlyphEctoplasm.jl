@@ -31,7 +31,8 @@ function render_and_save_outputs!(json_motifs::Dict, html_dict, j::Integer;
         sequence_paths::Vector{String},
         page_title::AbstractString="n/a",
         use_unified::Bool=false,
-        enable_colored_borders::Bool=true)
+        enable_colored_borders::Bool=true
+        )
     
     # Ensure save_path directory exists
     mkpath(save_path)
