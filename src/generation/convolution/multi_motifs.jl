@@ -105,6 +105,9 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
 
         # Process all distance variants
         sorted_dkeys = sort(collect(keys(count_matrices)), by = distance_key_value)
+
+        # TODO: 1) just render a subset that's the most enriched? 2) rid of the ones with very low counts?
+
         list_of_banzhafs_here = Dict(d_key => gdf_by_dsyms[d_key].banzhaf for d_key in sorted_dkeys)
 
         for d_key in sorted_dkeys
