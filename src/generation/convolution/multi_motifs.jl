@@ -3,6 +3,37 @@ Multi-motif processing for convolution-based analysis (pairs, triplets, etc.).
 """
 
 """
+    select_distance_configs(sorted_dkeys, counts_map; min_points=NUM_minimum_pts_FOR_BOXPLOT, max_configs=NUM_CONFIG_WITH_DISTANCES)
+
+Filter distance configurations by minimum sample size and select evenly-spaced subset.
+
+# Arguments
+- `sorted_dkeys`: Sorted vector of distance configuration keys (NamedTuples)
+- `counts_map`: Dict mapping each distance key to its sample count
+
+# Keyword Arguments
+- `min_points`: Minimum number of data points required (default: 25)
+- `max_configs`: Maximum number of configurations to select (default: 5)
+
+# Returns
+- Vector of selected distance keys, evenly spaced across filtered candidates
+"""
+function select_distance_configs(sorted_dkeys, counts_map; 
+        min_points=NUM_minimum_pts_FOR_BOXPLOT, 
+        max_configs=NUM_CONFIG_WITH_DISTANCES)
+    # Filter to configurations with enough data points
+    filtered = filter(d_key -> counts_map[d_key] >= min_points, sorted_dkeys)
+    
+    # Select evenly-spaced subset
+    n = length(filtered)
+    if n <= max_configs
+        return filtered
+    else
+        return [filtered[round(Int, 1 + (i-1)*(n-1)/(max_configs-1))] for i in 1:max_configs]
+    end
+end
+
+"""
     process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d_key, pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config; kwargs...)
 
 Process one multi-motif variant (pair/triplet/etc): save files with highlighting and register in JSON.
@@ -105,12 +136,11 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
 
         # Process all distance variants
         sorted_dkeys = sort(collect(keys(count_matrices)), by = distance_key_value)
+        selected_dkeys = select_distance_configs(sorted_dkeys, counts_map)
 
-        # TODO: 1) just render a subset that's the most enriched? 2) rid of the ones with very low counts?
+        list_of_banzhafs_here = Dict(d_key => gdf_by_dsyms[d_key].banzhaf for d_key in selected_dkeys)
 
-        list_of_banzhafs_here = Dict(d_key => gdf_by_dsyms[d_key].banzhaf for d_key in sorted_dkeys)
-
-        for d_key in sorted_dkeys
+        for d_key in selected_dkeys
             pfm = normalize_countmat(count_matrices[d_key])
             flat_windows = build_motif_windows(gdf_by_dsyms[d_key], motif_size, config.filter_len)
             median_here = median(gdf_by_dsyms[d_key].banzhaf)

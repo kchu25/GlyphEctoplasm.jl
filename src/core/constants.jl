@@ -94,3 +94,14 @@ const tag_group_id = "group_id"
 
 """HTML tag for button text (custom toggle button label)"""
 const tag_button_text = "button_text"
+
+
+# ============================================================================
+# MULTI-MOTIF PROCESSING PARAMETERS
+# ============================================================================
+
+"""Maximum number of distance configurations to render per motif group"""
+const NUM_CONFIG_WITH_DISTANCES = 5
+
+"""Minimum number of data points required for a distance configuration to be included"""
+const NUM_minimum_pts_FOR_BOXPLOT = 25
