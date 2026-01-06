@@ -21,8 +21,14 @@ Filter distance configurations by minimum sample size and select evenly-spaced s
 function select_distance_configs(sorted_dkeys, counts_map; 
         min_points=NUM_minimum_pts_FOR_BOXPLOT, 
         max_configs=NUM_CONFIG_WITH_DISTANCES)
-    # Filter to configurations with enough data points
+    # If no configurations meet threshold, select top ones by count
     filtered = filter(d_key -> counts_map[d_key] >= min_points, sorted_dkeys)
+    
+    if isempty(filtered) && !isempty(sorted_dkeys)
+        # Fall back to top configurations by count
+        sorted_by_count = sort(sorted_dkeys, by=d_key -> counts_map[d_key], rev=true)
+        filtered = sorted_by_count[1:min(max_configs, length(sorted_by_count))]
+    end
     
     # Select evenly-spaced subset
     n = length(filtered)
@@ -111,9 +117,12 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
     gdf_by_msyms = groupby(subdf, sep_by)
     sorted_keys, _, _, _, list_of_banzhafs = build_sorted_keys_and_maps(gdf_by_msyms, sep_by)
 
+    @info "Processing multi-motifs of size: $motif_size with $(length(sorted_keys)) motif groups"
+
     # Build mode prefix with group_id
     mode_prefix = isempty(group_id) ? "mode_" : "mode_$(group_id)_"
 
+    processed_count = 0
     @showprogress for (i, k) in enumerate(sorted_keys)
         idx = start_idx + i - 1
         mode_str = mode_prefix * string(idx)
@@ -132,11 +141,19 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
         count_matrices, highlighted_regions = 
             build_count_matrices_and_highlight(gdf_by_dsyms, config.data, motif_size, config.filter_len, config.float_type)
 
-        ensure_mode_entry!(json_motifs, mode_str)
-
         # Process all distance variants
         sorted_dkeys = sort(collect(keys(count_matrices)), by = distance_key_value)
         selected_dkeys = select_distance_configs(sorted_dkeys, counts_map)
+
+        # Skip this motif if no configurations pass filtering
+        if isempty(selected_dkeys)
+            @warn "Skipping motif $mode_str: no distance configurations with ≥$NUM_minimum_pts_FOR_BOXPLOT data points"
+            continue
+        end
+
+        ensure_mode_entry!(json_motifs, mode_str)
+
+        processed_count += 1
 
         list_of_banzhafs_here = Dict(d_key => gdf_by_dsyms[d_key].banzhaf for d_key in selected_dkeys)
 
@@ -158,7 +175,7 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
         populate_html_dict!(html_dict, idx, json_motifs[mode_str], filter_indices_str, relaxed_median_val, group_id, button_text)
     end
     
-    return start_idx + length(sorted_keys)
+    return start_idx + processed_count
 end
 
 """
