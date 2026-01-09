@@ -830,7 +830,9 @@ span.putBar {
 }
 
 .multi-modal-left {
-    flex: 1;
+    flex: 0 0 480px;
+    width: 480px;
+    min-width: 480px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -838,7 +840,9 @@ span.putBar {
 }
 
 .multi-modal-right {
-    flex: 1;
+    flex: 0 0 480px;
+    width: 480px;
+    min-width: 480px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -885,8 +889,9 @@ span.putBar {
 }
 
 .multi-modal-img-container {
-    width: 100%;
-    max-width: 450px;
+    max-width: 480px;
+    width: 480px;
+    min-width: 480px;
     height: 140px;
     padding: 1rem;
     border-radius: 8px;
@@ -894,6 +899,10 @@ span.putBar {
     justify-content: center;
     align-items: center;
     background-color: #ffffff;
+    border-left: 1px solid #8e8e93;
+    border-right: 1px solid #8e8e93;
+    border-top: 1px solid #8e8e93;
+    border-bottom: 1px solid #8e8e93;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -905,14 +914,19 @@ span.putBar {
 }
 
 .multi-modal-slider {
-    width: 100%;
-    max-width: 600px;
+    width: 480px;
+    min-width: 480px;
+    max-width: 480px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
     padding: 1rem;
     border-radius: 8px;
+    border-left: 1px solid #8e8e93;
+    border-right: 1px solid #8e8e93;
+    border-top: 1px solid #8e8e93;
+    border-bottom: 1px solid #8e8e93;
     background-color: #ffffff;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
