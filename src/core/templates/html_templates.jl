@@ -55,6 +55,7 @@ html_template = mt"""<!DOCTYPE html>
                 p_id4: `{{{:p_id4_default}}}`,
                 p_id5: `{{{:p_id5_default}}}`,
                 p_id6: `{{{:p_id6_default}}}`,
+                p_id7: `{{{:p_id7_default}}}`,
                 div_slide_id: "{{:div_slide_id}}",
                 max_comb: {{:max_comb}},
                 filter_indices: "{{{:filter_indices}}}",
@@ -134,12 +135,13 @@ html_template = mt"""<!DOCTYPE html>
                             <span class="filter-index-overlay">${item.filter_indices}</span>
                         </div>
                         <div id="${item.div_text_id}" class="textContainer">
-                            <p id="text${item.i}_1" class="imageText">${item.p_id1}</p>
-                            <p id="text${item.i}_2" class="imageText">${item.p_id2}</p>
-                            <p id="text${item.i}_3" class="imageText">${item.p_id3}</p>
-                            <p id="text${item.i}_4" class="imageText">${item.p_id4}</p>
-                            <p id="text${item.i}_5" class="imageText">${item.p_id5}</p>
-                            <p id="text${item.i}_6" class="imageText">${item.p_id6}</p>
+                            ${item.p_id1 ? `<p id="text${item.i}_1" class="imageText">${item.p_id1}</p>` : ''}
+                            ${item.p_id2 ? `<p id="text${item.i}_2" class="imageText">${item.p_id2}</p>` : ''}
+                            ${item.p_id3 ? `<p id="text${item.i}_3" class="imageText">${item.p_id3}</p>` : ''}
+                            ${item.p_id4 ? `<p id="text${item.i}_4" class="imageText">${item.p_id4}</p>` : ''}
+                            ${item.p_id5 ? `<p id="text${item.i}_5" class="imageText">${item.p_id5}</p>` : ''}
+                            ${item.p_id6 ? `<p id="text${item.i}_6" class="imageText">${item.p_id6}</p>` : ''}
+                            ${item.p_id7 ? `<p id="text${item.i}_7" class="imageText">${item.p_id7}</p>` : ''}
                         </div>
                     </div>
                     <div id="${item.div_slide_id}" class="sliderContainer">
@@ -351,6 +353,8 @@ html_template_singleton = mt"""<!DOCTYPE html>
                 text3: `{{{:p_id3_default}}}`,
                 text4: `{{{:p_id4_default}}}`,
                 text5: `{{{:p_id5_default}}}`,
+                text6: `{{{:p_id6_default}}}`,
+                text7: `{{{:p_id7_default}}}`,
                 median: "{{:median_val}}",
                 group_id: "{{:group_id}}",
                 button_text: "{{:button_text}}",
@@ -557,6 +561,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                 text4: `{{{:p_id4_default}}}`,
                 text5: `{{{:p_id5_default}}}`,
                 text6: `{{{:p_id6_default}}}`,
+                text7: `{{{:p_id7_default}}}`,
                 median: "{{:median_val}}",
                 group_id: "{{:group_id}}",
                 button_text: "{{:button_text}}",
@@ -664,12 +669,13 @@ html_template_unified = mt"""<!DOCTYPE html>
                                 <span class="filter-index-overlay">${item.filter_indices}</span>
                             </div>
                             <div id="${item.div_text_id}" class="textContainer">
-                                <p id="text${item.i}_1" class="imageText">${item.text1}</p>
-                                <p id="text${item.i}_2" class="imageText">${item.text2}</p>
-                                <p id="text${item.i}_3" class="imageText">${item.text3}</p>
-                                <p id="text${item.i}_4" class="imageText">${item.text4}</p>
-                                <p id="text${item.i}_5" class="imageText">${item.text5}</p>
-                                <p id="text${item.i}_6" class="imageText">${item.text6}</p>
+                                ${item.text1 ? `<p id="text${item.i}_1" class="imageText">${item.text1}</p>` : ''}
+                                ${item.text2 ? `<p id="text${item.i}_2" class="imageText">${item.text2}</p>` : ''}
+                                ${item.text3 ? `<p id="text${item.i}_3" class="imageText">${item.text3}</p>` : ''}
+                                ${item.text4 ? `<p id="text${item.i}_4" class="imageText">${item.text4}</p>` : ''}
+                                ${item.text5 ? `<p id="text${item.i}_5" class="imageText">${item.text5}</p>` : ''}
+                                ${item.text6 ? `<p id="text${item.i}_6" class="imageText">${item.text6}</p>` : ''}
+                                ${item.text7 ? `<p id="text${item.i}_7" class="imageText">${item.text7}</p>` : ''}
                             </div>
                         </div>
                         <div id="${item.div_slide_id}" class="sliderContainer">

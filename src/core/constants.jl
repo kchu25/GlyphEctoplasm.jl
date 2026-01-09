@@ -77,6 +77,9 @@ const tag_p_id5_default = "p_id5_default"
 """HTML tag for sixth paragraph (gap histogram)"""
 const tag_p_id6_default = "p_id6_default"
 
+"""HTML tag for seventh paragraph (optional)"""
+const tag_p_id7_default = "p_id7_default"
+
 """HTML tag for slider container div ID"""
 const tag_div_slide_id = "div_slide_id"
 

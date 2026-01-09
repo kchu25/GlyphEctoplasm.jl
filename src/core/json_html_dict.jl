@@ -64,6 +64,7 @@ function init_dict_for_html_render()
         tag_p_id4_default,
         tag_p_id5_default,
         tag_p_id6_default,
+        tag_p_id7_default,
         tag_div_slide_id,
         tag_max_comb,
         tag_filter_indices,
@@ -124,12 +125,15 @@ function populate_html_dict!(html_dict, idx, json_mode, filter_indices::Abstract
     push!(html_dict[tag_img_src], json_mode[pwms_str][1])
     push!(html_dict[tag_img_alt], json_mode[labels_str][1])
     push!(html_dict[tag_div_text_id], "textContainer$idx")
-    push!(html_dict[tag_p_id1_default], json_mode[texts_str][1][1])
-    push!(html_dict[tag_p_id2_default], json_mode[texts_str][1][2])
-    push!(html_dict[tag_p_id3_default], json_mode[texts_str][1][3])
-    push!(html_dict[tag_p_id4_default], json_mode[texts_str][1][4])
-    push!(html_dict[tag_p_id5_default], json_mode[texts_str][1][5])
-    push!(html_dict[tag_p_id6_default], json_mode[texts_str][1][6])
+    # Handle variable-length text arrays (support 1-7 fields)
+    texts = json_mode[texts_str][1]
+    push!(html_dict[tag_p_id1_default], length(texts) >= 1 ? texts[1] : "")
+    push!(html_dict[tag_p_id2_default], length(texts) >= 2 ? texts[2] : "")
+    push!(html_dict[tag_p_id3_default], length(texts) >= 3 ? texts[3] : "")
+    push!(html_dict[tag_p_id4_default], length(texts) >= 4 ? texts[4] : "")
+    push!(html_dict[tag_p_id5_default], length(texts) >= 5 ? texts[5] : "")
+    push!(html_dict[tag_p_id6_default], length(texts) >= 6 ? texts[6] : "")
+    push!(html_dict[tag_p_id7_default], length(texts) >= 7 ? texts[7] : "")
     push!(html_dict[tag_div_slide_id], "slideContainer$idx")
     push!(html_dict[tag_max_comb], "$(length(json_mode[pwms_str])-1)")
     push!(html_dict[tag_filter_indices], filter_indices)
