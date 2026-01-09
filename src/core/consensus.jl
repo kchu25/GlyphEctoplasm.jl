@@ -97,7 +97,7 @@ counts = [10 2 5;
 countmat2consensus(counts)  # "ACG"
 ```
 """
-function pfm2consensus(pfm; rna = false)
+function pfm2consensus(pfm; rna = false, font_size = "11px")
     consensus_str = get_relaxed_consensus_str(pfm; rna = rna)
-    return consensus_str
+    return "<span style=\"font-size: $(font_size);\">$(consensus_str)</span>"
 end
