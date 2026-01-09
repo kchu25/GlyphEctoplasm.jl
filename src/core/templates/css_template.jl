@@ -736,7 +736,7 @@ span.putBar {
     border-right: 1px solid #8e8e93;
     border-top: 1px solid #8e8e93;
     border-bottom: 1px solid #8e8e93;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
 .singleton-info-item a {
@@ -957,11 +957,7 @@ span.putBar {
     border-radius: 8px;
     font-size: 14px;
     color: #444;
-    border-left: 1px solid #8e8e93;
-    border-right: 1px solid #8e8e93;
-    border-top: 1px solid #8e8e93;
-    border-bottom: 1px solid #8e8e93;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
 .multi-info-item a {
