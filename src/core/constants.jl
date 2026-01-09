@@ -24,7 +24,7 @@ const _ind2dna_str_rna = Dict{Int, Char}(
 Placeholder character for low-confidence positions in consensus sequences.
 Displayed when probability is below threshold.
 """
-const _placeholder_char_ = 'n'
+const _placeholder_char_ = '-'
 
 
 # ============================================================================
