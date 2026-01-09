@@ -660,12 +660,17 @@ span.putBar {
 
 .singleton-modal-influence-container {
     width: 100%;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
     background-color: #ffffff;
     padding: 1rem;
+    border-left: 1px solid #8e8e93;
+    border-right: 1px solid #8e8e93;
+    border-top: 1px solid #8e8e93;
+    border-bottom: 1px solid #8e8e93;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -727,6 +732,7 @@ span.putBar {
 
 .singleton-info-item {
     background-color: #ffffff;
+    box-sizing: border-box;
     padding: 12px 15px;
     margin: 8px 0;
     border-radius: 8px;
@@ -850,6 +856,7 @@ span.putBar {
 
 .multi-modal-influence-container {
     width: 100%;
+    box-sizing: border-box;
     padding: 1rem;
     border-radius: 8px;
     display: flex;
@@ -857,6 +864,10 @@ span.putBar {
     align-items: center;
     gap: 10px;
     background-color: #ffffff;
+    border-left: 1px solid #8e8e93;
+    border-right: 1px solid #8e8e93;
+    border-top: 1px solid #8e8e93;
+    border-bottom: 1px solid #8e8e93;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
@@ -952,11 +963,16 @@ span.putBar {
 
 .multi-info-item {
     background-color: #ffffff;
+    box-sizing: border-box;
     padding: 12px 15px;
     margin: 8px 0;
     border-radius: 8px;
     font-size: 14px;
     color: #444;
+    border-left: 1px solid #8e8e93;
+    border-right: 1px solid #8e8e93;
+    border-top: 1px solid #8e8e93;
+    border-bottom: 1px solid #8e8e93;
     box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
 }
 
