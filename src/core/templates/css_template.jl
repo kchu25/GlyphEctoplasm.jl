@@ -646,7 +646,7 @@ span.putBar {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    gap: 25px;
+    gap: 5px;
 }
 
 .singleton-modal-left {
@@ -655,7 +655,7 @@ span.putBar {
     flex-direction: column;
     align-items: center;
     gap: 20px;
-    padding: 20px;
+    padding: 0;
 }
 
 .singleton-modal-influence-container {
@@ -702,20 +702,26 @@ span.putBar {
     color: #333;
     font-size: 20px;
     text-align: center;
-    padding-top: 10px;
+    padding-top: 0;
+    order: 2;
 }
 
 .singleton-modal-img-container {
     width: 100%;
-    max-width: 500px;
-    height: 180px;
+    max-width: 360px;
+    height: 105px;
     padding: 1rem;
     border-radius: 8px;
     display: flex;
     justify-content: center;
     align-items: center;
     background-color: #ffffff;
+    border-left: 1px solid #8e8e93;
+    border-right: 1px solid #8e8e93;
+    border-top: 1px solid #8e8e93;
+    border-bottom: 1px solid #8e8e93;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    order: 1;
 }
 
 .singleton-modal-img-container img {
