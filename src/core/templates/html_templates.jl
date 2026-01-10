@@ -61,7 +61,8 @@ html_template = mt"""<!DOCTYPE html>
                 filter_indices: "{{{:filter_indices}}}",
                 median: "{{:median_val}}",
                 group_id: "{{:group_id}}",
-                button_text: "{{:button_text}}"
+                button_text: "{{:button_text}}",
+                has_interaction: {{:has_interaction}}
             },
             {{/:DF}}
         ].filter(x => x.img_src);
@@ -133,6 +134,7 @@ html_template = mt"""<!DOCTYPE html>
                         <div id="${item.div_img_id}" class="imageContainer">
                             <img id="img${item.i}" src="${item.img_src}" alt="${item.img_alt}">
                             <span class="filter-index-overlay">${item.filter_indices}</span>
+                            ${item.has_interaction ? '<span class="interaction-indicator">I</span>' : ''}
                         </div>
                         <div id="${item.div_text_id}" class="textContainer">
                             ${item.p_id1 ? `<p id="text${item.i}_1" class="imageText">${item.p_id1}</p>` : ''}
@@ -573,7 +575,8 @@ html_template_unified = mt"""<!DOCTYPE html>
                 div_slide_id: "{{:div_slide_id}}",
                 // Derived
                 influence: "{{{:img_src}}}".replace('.png', '_influence.png'),
-                is_singleton: {{:max_comb}} === 0
+                is_singleton: {{:max_comb}} === 0,
+                has_interaction: {{:has_interaction}}
             },
             {{/:DF}}
         ].filter(x => x.img_src);
@@ -667,6 +670,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                             <div id="${item.div_img_id}" class="imageContainer">
                                 <img id="img${item.i}" src="${item.img_src}" alt="${item.img_alt}">
                                 <span class="filter-index-overlay">${item.filter_indices}</span>
+                                ${item.has_interaction ? '<span class="interaction-indicator">I</span>' : ''}
                             </div>
                             <div id="${item.div_text_id}" class="textContainer">
                                 ${item.text1 ? `<p id="text${item.i}_1" class="imageText">${item.text1}</p>` : ''}

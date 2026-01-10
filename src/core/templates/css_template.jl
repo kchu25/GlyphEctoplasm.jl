@@ -118,6 +118,22 @@ span.putBar {
     z-index: 10;
 }
 
+/* Interaction indicator for pair-motifs with detected interactions */
+.interaction-indicator {
+    position: absolute;
+    bottom: 1px;
+    right: 6px;
+    font-size: 21px;
+    font-weight: 700;
+    font-family: monospace;
+    color: rgba(128, 128, 128, 0.4);  /* More transparent */
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+    letter-spacing: -2px;
+}
+
+
 .textContainer {
     display: none;
 }

@@ -71,6 +71,7 @@ function init_dict_for_html_render()
         tag_median_val,
         tag_group_id,
         tag_button_text,
+        tag_has_interaction,
     )
 
     html_dict = HTMLDict()
@@ -140,4 +141,7 @@ function populate_html_dict!(html_dict, idx, json_mode, filter_indices::Abstract
     push!(html_dict[tag_median_val], string(median_val))
     push!(html_dict[tag_group_id], group_id)
     push!(html_dict[tag_button_text], button_text)
+    # Check if text5 (interact_part) is non-empty to indicate interaction
+    has_interaction = length(texts) >= 5 && !isempty(texts[5])
+    push!(html_dict[tag_has_interaction], has_interaction ? "true" : "false")
 end

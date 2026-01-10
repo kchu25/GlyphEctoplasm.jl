@@ -99,6 +99,9 @@ const tag_group_id = "group_id"
 """HTML tag for button text (custom toggle button label)"""
 const tag_button_text = "button_text"
 
+"""HTML tag for interaction indicator (true if pair-motif has interaction)"""
+const tag_has_interaction = "has_interaction"
+
 
 # ============================================================================
 # MULTI-MOTIF PROCESSING PARAMETERS
