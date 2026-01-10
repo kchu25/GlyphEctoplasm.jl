@@ -63,7 +63,7 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
     # Save MEME file
     save_as_meme(pfm, paths.meme.abs)
     
-    # Build metadata texts
+    # Build metadata texts (list of strings)
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 use_rna=config.use_rna, relaxed_median=relaxed_median)
     
