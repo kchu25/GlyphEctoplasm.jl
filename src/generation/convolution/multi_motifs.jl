@@ -46,8 +46,9 @@ Process one multi-motif variant (pair/triplet/etc): save files with highlighting
 Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 """
 function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d_key, 
-        pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig; 
+        pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig;
         save_folder_motif, motif_type_subdir, relaxed_median, 
+        interaction_summary_mode_str = nothing,
         rna=false)
     
     d_str = get_d_str(d_key)
@@ -65,7 +66,9 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
     
     # Build metadata texts (list of strings)
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
-                                use_rna=config.use_rna, relaxed_median=relaxed_median)
+                                interaction_summary_mode_str=interaction_summary_mode_str,
+                                use_rna=config.use_rna, 
+                                relaxed_median=relaxed_median)
     
     label = get_descriptive_str(k, d_key)
     # Add variant without populating HTML (HTML will be populated once at the end)
@@ -97,6 +100,7 @@ JSON and HTML dicts sorted by median banzhaf contribution (descending).
 - Next available index for mode numbering
 """
 function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_dict;
+        interaction_summary = nothing,
         motif_size::Int = 2,
         motif_type::String = "pair_motifs",
         save_folder = nothing,
@@ -124,6 +128,13 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
 
     processed_count = 0
     @showprogress for (i, k) in enumerate(sorted_keys)
+
+        interaction_summary_mode_str = if !isnothing(interaction_summary) && motif_size == 2
+            get(interaction_summary, k, nothing)
+        else
+            nothing
+        end
+
         idx = start_idx + i - 1
         mode_str = mode_prefix * string(idx)
         k_mode_str = get_k_mode_str(k)
@@ -165,6 +176,7 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
             process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d_key,
                 pfm, flat_windows, highlighted_regions[d_key], median_here, counts_map[d_key], 
                 list_of_banzhafs_here[d_key], config;
+                interaction_summary_mode_str=interaction_summary_mode_str,
                 save_folder_motif=save_folder_motif, 
                 motif_type_subdir=joinpath(motif_type, k_mode_str),
                 relaxed_median=relaxed_median_val, rna=rna)

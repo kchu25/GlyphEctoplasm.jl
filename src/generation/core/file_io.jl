@@ -100,6 +100,7 @@ Returns array of formatted strings for influence median, construction info,
 consensus, and file links.
 """
 function build_metadata_texts(pfm, paths, median_val, count_val; 
+                             interaction_summary_mode_str=nothing,
                              use_rna=false, relaxed_median=nothing,
                              show_meme_and_csv=true)
 
@@ -137,7 +138,15 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
         influence_median = string("Influence Median: <strong>", round(median_val, digits=2), "</strong>")
     end
 
-    return [influence_median, construct_str, consensus_str, meme_csv_combined, "", ""]
+    interact_part = begin 
+        if isnothing(interaction_summary_mode_str)
+            ""
+        else 
+            interaction_summary_mode_str
+        end
+    end
+    
+    return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, ""]
 end
 
 export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts
