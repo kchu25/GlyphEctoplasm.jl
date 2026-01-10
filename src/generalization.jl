@@ -64,7 +64,7 @@ function publication_scatter_panel(data_pairs;
     colgap!(fig.layout, 20)
     
     if !isnothing(save_path)
-        save(save_path, fig, px_per_unit=3)
+        save(save_path, fig, px_per_unit=1)
     end
     
     return fig
