@@ -1,42 +1,71 @@
+
 const motif_names = ["pairs", "triplets", "quadruplets", "quintuplets"]
 
-# function plot_motifs_conv_case(data, m, 
-#         contributions_df_filtered, dfs; 
-#         dpi=65, save_path="tmp", xlim=(-2,2), 
-#         page_title="n/a"
-#         );
+# Collect extrema across all DataFrames without allocation
+function obtain_xlim(contributions_df_filtered_singletons, dfs)
+    xlim = mapreduce(extrema, 
+        (a, b) -> (min(a[1], b[1]), max(a[2], b[2])),
+        (contributions_df_filtered_singletons.banzhaf, 
+            (df.banzhaf for df in dfs)...))
 
-#     motif_sizes = collect(2:(length(dfs) + 1))
+    return xlim
+end
 
-#     config = ConvMotifConfig(data; 
-#         filter_len=m.hp.pfm_len, dpi=dpi, save_path=save_path, xlim=xlim)
+function plot_motifs_conv_case(data, m, motif_sizes, 
+        contributions_df_filtered_singletons, dfs, pts;
+        interaction_summary=nothing,
+        nav_page_count=4,
+        enable_colored_borders = true,
+        use_unified=true,
+        dpi=65, 
+        save_path="tmp", 
+        page_title="n/a", 
+        rna=false
+        );
+
+    # motif rendering
+    xlim = obtain_xlim(contributions_df_filtered_singletons, dfs)
+
+    config = ConvMotifConfig(data; 
+        filter_len=m.hp.pfm_len, dpi=dpi, save_path=save_path, xlim=xlim)
         
-#     json_motifs = init_json_dict()
-#     html_dict = init_dict_for_html_render()
+    json_motifs = init_json_dict()
+    html_dict = init_dict_for_html_render()
 
-#     next_idx = process_singletons!(
-#         contributions_df_filtered, config, json_motifs, html_dict; start_idx=1)
+    next_idx = process_singletons!(
+        contributions_df_filtered_singletons, config, json_motifs, html_dict; start_idx=1, rna=rna)
 
-#     group_ids = [motif_names[min(size-1, 4)] for size in motif_sizes]
-#     button_texts = ["$(size)-motifs" for size in motif_sizes]
+    group_ids = [motif_names[min(size-1, 4)] for size in motif_sizes]
+    button_texts = ["$(size)-motifs" for size in motif_sizes]
 
-#     for (motif_size, group_id, button_text) in zip(motif_sizes, group_ids, button_texts)
-#         @info "Processing multi-motifs of size: $(motif_size)"
-#         next_idx = process_multi_motifs!(dfs, 
-#             config, json_motifs, html_dict; 
-#                 motif_size=motif_size, group_id=group_id, 
-#                 button_text=button_text, start_idx=next_idx
-#                 )
-#     end
-    
-#     render_and_save_outputs!(json_motifs, html_dict, 1; 
-#         html_template=html_template_unified, 
-#         script_template=script_template,
-#         css_template=template_css,
-#         nav_page_count=4,
-#         sequence_paths=[""],
-#         page_title=page_title,
-#         save_path=save_path, 
-#         enable_colored_borders = true,
-#         use_unified=true)
-# end
+    for (motif_size, group_id, button_text) in zip(motif_sizes, group_ids, button_texts)
+        @info "Processing multi-motifs of size: $(motif_size)"
+        @time next_idx = process_multi_motifs!(dfs, 
+            config, json_motifs, html_dict;             
+                interaction_summary=interaction_summary,
+                motif_size=motif_size, group_id=group_id, 
+                button_text=button_text, start_idx=next_idx, rna=rna                
+                )
+    end
+
+    # Generate combined panel figure 
+    data_pairs = [
+        (pts.predictions, pts.labels, "Predictions", "Labels", "Predictions vs Labels"),
+        (pts.proc_prod, pts.labels, "Processor Product", "Labels", "Processor Product vs Labels"),
+        (pts.proc_prod, pts.predictions, "Processor Product", "Predictions", "Processor Product vs Predictions")
+    ]
+    publication_scatter_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
+
+
+    render_and_save_outputs!(json_motifs, html_dict, 1; 
+        html_template=html_template_unified, 
+        script_template=script_template,
+        css_template=template_css,
+        nav_page_count=nav_page_count,
+        sequence_paths=[""],
+        page_title=page_title,
+        save_path=save_path, 
+        enable_colored_borders = enable_colored_borders,
+        use_unified=use_unified
+        )
+end
