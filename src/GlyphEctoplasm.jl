@@ -52,6 +52,7 @@ using JSON3
 using CairoMakie
 using StatsBase
 using FileIO
+using Printf
 
 # =============================================================================
 # BanzhafPlots Submodule
@@ -81,6 +82,7 @@ include(joinpath("generation", "generation.jl"))
 # =============================================================================
 # Rendering 
 # =============================================================================
+include("generalization.jl")
 include("run_thru_conv.jl")
 include("run_thru_mut.jl")
 
