@@ -26,6 +26,7 @@ Displayed when probability is below threshold.
 """
 const _placeholder_char_ = '-'
 
+# TODO: make those constants in all CAPS?
 
 # ============================================================================
 # JSON/HTML DATA STRUCTURE KEYS
