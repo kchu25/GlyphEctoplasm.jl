@@ -129,7 +129,7 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
     processed_count = 0
     @showprogress for (i, k) in enumerate(sorted_keys)
 
-        interaction_summary_mode_str = if !isnothing(interaction_summary) && motif_size == 2
+        interaction_summary_mode_str = if !isnothing(interaction_summary)
             get(interaction_summary, k, nothing)
         else
             nothing

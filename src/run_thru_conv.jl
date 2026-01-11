@@ -13,7 +13,7 @@ end
 
 function plot_motifs_conv_case(data, m, motif_sizes, 
         contributions_df_filtered_singletons, dfs, pts;
-        interaction_summary=nothing,
+        interaction_summaries=nothing,
         nav_page_count=4,
         enable_colored_borders = true,
         use_unified=true,
@@ -38,8 +38,9 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     group_ids = [motif_names[min(size-1, 4)] for size in motif_sizes]
     button_texts = ["$(size)-motifs" for size in motif_sizes]
 
-    for (motif_size, group_id, button_text) in zip(motif_sizes, group_ids, button_texts)
+    for (index, (motif_size, group_id, button_text)) in enumerate(zip(motif_sizes, group_ids, button_texts))
         @info "Processing multi-motifs of size: $(motif_size)"
+        interaction_summary = interaction_summaries === nothing ? nothing : interaction_summaries[index]
         @time next_idx = process_multi_motifs!(dfs, 
             config, json_motifs, html_dict;             
                 interaction_summary=interaction_summary,
