@@ -79,4 +79,38 @@ function render_and_save_outputs!(json_motifs::Dict, html_dict, j::Integer;
     end
 end
 
-export render_and_save_outputs!
+"""
+    render_generalization_page!(save_path; page_title, nav_page_count, image_filename)
+
+Render the generalization page (index2.html) displaying a centered image.
+
+# Parameters
+- `save_path::AbstractString`: Directory to save output files
+- `page_title::AbstractString`: Title for the page
+- `nav_page_count::Integer`: Number of navigation links
+- `image_filename::AbstractString`: Filename of the generalization image (default: "generalization.png")
+"""
+function render_generalization_page!(save_path::AbstractString;
+        page_title::AbstractString="n/a",
+        nav_page_count::Integer=4,
+        image_filename::AbstractString="generalization.png"
+        )
+    
+    # Ensure save_path directory exists
+    mkpath(save_path)
+    
+    # Render HTML using the generalization template
+    html_rendered = Mustache.render(html_template_generalization, 
+        protein_name=page_title, 
+        j=2, 
+        upto=nav_page_count,
+        image_path=image_filename
+    )
+    
+    # Write HTML file
+    open(joinpath(save_path, "index2.html"), "w") do io
+        print(io, html_rendered)
+    end
+end
+
+export render_and_save_outputs!, render_generalization_page!

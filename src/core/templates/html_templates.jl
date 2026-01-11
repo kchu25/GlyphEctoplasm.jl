@@ -858,5 +858,102 @@ html_hover_default = mt"""
         </div>
     </div>"""
 
+"""
+HTML template for the generalization page (index2.html).
+
+Displays the generalization scatter plot image centered on the page
+with the same navigation bar as the main motif pages.
+
+Mustache variables:
+- `protein_name`: Title displayed in page
+- `j`: Page number (should be 2 for generalization)
+- `upto`: Total number of navigation pages
+- `image_path`: Path to the generalization.png image
+"""
+html_template_generalization = mt"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{{:protein_name}}} - Generalization</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .generalization-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            padding: 40px 20px;
+        }
+        .generalization-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+        }
+        .generalization-image {
+            max-width: 95%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .generalization-caption {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            max-width: 800px;
+        }
+    </style>
+</head>
+<body>
+    <br><br>
+    <div class="wrapper">
+        <div id="nav" style="display: flex; justify-content: center;"></div>
+        <br><br>
+        
+        <div class="generalization-container">
+            <!--- <h1 class="generalization-title">Generalization on the test set.</h1> --->
+            <img src="{{{:image_path}}}" alt="Generalization Scatter Plots" class="generalization-image">
+            <p class="generalization-caption">
+                Generalization on the test set. Scatter plots comparing model predictions, labels, and processor products. 
+                R² values indicate the correlation strength between each pair.
+            </p>
+        </div>
+    </div>
+    
+    <script>
+    function createArray(num) {
+        return Array.from({ length: num }, (_, i) => i + 1);
+    }
+    
+    function updateNav() {
+        const currentPage = 'index{{:j}}.html';
+        const availablePages = createArray({{:upto}});
+        
+        const navHtml = availablePages.map(num => {
+            const page = 'index' + num + '.html';
+            const label = num === 1 ? 'Pattern influence' :
+                          num === 2 ? 'Generalization' :
+                          num === 3 ? 'Statistics' :
+                          num === 4 ? 'Readme' :
+                          num === 5 ? 'Page 5' :
+                          'Page 6';
+            
+            return '<a href="' + page + '" ' + (currentPage === page ? 'class="current"' : '') + '>' + label + '</a>';
+        }).join(' &nbsp;&nbsp; | &nbsp;&nbsp; ');
+        
+        document.getElementById('nav').innerHTML = navHtml;
+    }
+    
+    window.onload = updateNav;
+    </script>
+</body>
+</html>
+"""
+
 """Closing HTML tags"""
 html_end = "</body></html>"
