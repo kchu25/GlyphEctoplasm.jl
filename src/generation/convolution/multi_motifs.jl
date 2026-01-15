@@ -153,7 +153,7 @@ function process_multi_motifs!(df, config::ConvMotifConfig, json_motifs, html_di
             build_count_matrices_and_highlight(gdf_by_dsyms, config.data, motif_size, config.filter_len, config.float_type)
 
         # Process all distance variants
-        sorted_dkeys = sort(collect(keys(count_matrices)), by = distance_key_value)
+        sorted_dkeys = sort(collect(keys(counts_map)), by = distance_key_value)
         selected_dkeys = select_distance_configs(sorted_dkeys, counts_map)
 
         # Skip this motif if no configurations pass filtering
