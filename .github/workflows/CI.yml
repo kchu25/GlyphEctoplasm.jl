@@ -36,8 +36,10 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
-      - name: Build package
-        run: julia --project -e 'using Pkg; Pkg.build()'
+      - name: Install dependencies
+        run: |
+          rm -f Manifest.toml
+          julia --project -e 'using Pkg; Pkg.instantiate()'
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
       - uses: codecov/codecov-action@v4
