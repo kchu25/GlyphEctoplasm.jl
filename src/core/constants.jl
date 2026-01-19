@@ -108,7 +108,7 @@ const tag_has_interaction = "has_interaction"
 # ============================================================================
 
 """Maximum number of distance configurations to render per motif group"""
-const NUM_CONFIG_WITH_DISTANCES = 5
+const NUM_CONFIG_WITH_DISTANCES = 16
 
 """Minimum number of data points required for a distance configuration to be included"""
 const NUM_minimum_pts_FOR_BOXPLOT = 25
