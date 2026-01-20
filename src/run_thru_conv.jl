@@ -32,15 +32,21 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     json_motifs = init_json_dict()
     html_dict = init_dict_for_html_render()
 
-    next_idx = process_singletons!(
+    next_idx, sorted_mapping = process_singletons!(
         contributions_df_filtered_singletons, config, json_motifs, html_dict; start_idx=1, rna=rna)
+
+    # Remap filter indices in multi-motif DataFrames to use sorted order
+    remap_filter_indices!(dfs, sorted_mapping, motif_sizes)
+    
+    # Remap interaction summaries to use sorted order
+    remapped_interaction_summaries = remap_interaction_summaries(interaction_summaries, sorted_mapping, motif_sizes)
 
     group_ids = [motif_names[min(size-1, 4)] for size in motif_sizes]
     button_texts = ["$(size)-motifs" for size in motif_sizes]
 
     for (index, (motif_size, group_id, button_text)) in enumerate(zip(motif_sizes, group_ids, button_texts))
         @info "Processing multi-motifs of size: $(motif_size)"
-        interaction_summary = interaction_summaries === nothing ? nothing : interaction_summaries[index]
+        interaction_summary = remapped_interaction_summaries === nothing ? nothing : remapped_interaction_summaries[index]
         @time next_idx = process_multi_motifs!(dfs, 
             config, json_motifs, html_dict;             
                 interaction_summary=interaction_summary,

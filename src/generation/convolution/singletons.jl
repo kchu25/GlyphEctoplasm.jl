@@ -11,10 +11,14 @@ Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
         save_folder, motif_type, median_val, count_val, banzhafs,
         mode_prefix="mode_", group_id="", button_text="Singleton Motifs", 
-        rna=false, is_significant::Bool=true
+        rna=false, is_significant::Bool=true,
+        display_index::Union{Int, Nothing}=nothing
         )
     
-    name_base = string(k.filter_index)
+    # Use display_index for labels/filenames if provided, otherwise use original k.filter_index
+    shown_index = display_index === nothing ? k.filter_index : display_index
+    
+    name_base = string(shown_index)
     paths = build_motif_paths(name_base, save_folder, motif_type)
 
     # Save logo and influence plot (using config parameters)
@@ -32,8 +36,8 @@ function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gd
                                 use_rna=config.use_rna, relaxed_median=nothing)
     
     mode_str = mode_prefix * string(idx)
-    label = "pattern $(k.filter_index)"
-    filter_indices_str = string(k.filter_index)
+    label = "pattern $(shown_index)"
+    filter_indices_str = string(shown_index)
     add_motif_entry!(json_motifs, html_dict, mode_str, paths.png.rel, label, texts, idx, filter_indices_str, median_val, group_id, button_text; is_significant=is_significant)
 end
 
@@ -58,7 +62,7 @@ Populates JSON and HTML dicts sorted by median banzhaf contribution (descending)
 - `pareto_rank = nothing`: Optional Pareto rank filter
 
 # Returns
-- Next available index for mode numbering
+- `(next_idx, sorted_mapping)`: Tuple of next available index and Dict mapping original filter_index to sorted order
 """
 function process_singletons!(contributions_df, config::ConvMotifConfig, json_motifs, html_dict;
         motif_type::String = "singletons",
@@ -84,6 +88,12 @@ function process_singletons!(contributions_df, config::ConvMotifConfig, json_mot
     # Check if significant column exists
     has_significant_col = hasproperty(contributions_df, :significant)
 
+    # Build sorted_mapping: original filter_index => sorted order (1-based)
+    sorted_mapping = Dict{Int, Int}()
+    for (i, k) in enumerate(sorted_keys)
+        sorted_mapping[k.filter_index] = i
+    end
+
     for (i, k) in enumerate(sorted_keys)
         idx = start_idx + i - 1
         pfm = normalize_countmat(count_matrices[k])
@@ -91,15 +101,19 @@ function process_singletons!(contributions_df, config::ConvMotifConfig, json_mot
         # Extract significance from first row of group (all rows in group have same value)
         is_significant = has_significant_col ? first(gdf_filters[k].significant) : true
         
+        # Use sorted index (i) as display_index for consistent numbering
         process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_filters[k], config;
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
             mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna,
-            is_significant=is_significant)
+            is_significant=is_significant, display_index=i)
     end
     
-    # Return next available index
-    return start_idx + length(sorted_keys)
+    # Remap filter_index column in contributions_df to use sorted order (after processing)
+    contributions_df.filter_index = [sorted_mapping[idx] for idx in contributions_df.filter_index]
+
+    # Return next available index and the sorted mapping
+    return start_idx + length(sorted_keys), sorted_mapping
 end
 
 """
@@ -134,4 +148,60 @@ function process_singletons!(contributions_df, data, json_motifs, html_dict;
                               start_idx=start_idx, pareto_rank=pareto_rank)
 end
 
-export process_singletons!, process_and_register_singleton!
+"""
+    remap_filter_indices!(dfs, sorted_mapping, motif_sizes)
+
+Remap filter indices in multi-motif DataFrames using the sorted mapping from singletons.
+Modifies the m1, m2, m3, ... columns in each DataFrame to use the new sorted indices.
+
+# Arguments
+- `dfs`: Vector of DataFrames containing multi-motif data
+- `sorted_mapping`: Dict mapping original filter_index to sorted order
+- `motif_sizes`: Vector of motif sizes corresponding to each DataFrame
+"""
+function remap_filter_indices!(dfs::Vector, sorted_mapping::Dict{Int, Int}, motif_sizes::Vector)
+    for (df, motif_size) in zip(dfs, motif_sizes)
+        m_syms = m_symbols(motif_size)
+        for m_sym in m_syms
+            if hasproperty(df, m_sym)
+                df[!, m_sym] = [get(sorted_mapping, idx, idx) for idx in df[!, m_sym]]
+            end
+        end
+    end
+end
+
+"""
+    remap_interaction_summaries(interaction_summaries, sorted_mapping, motif_sizes)
+
+Remap filter indices in interaction summaries using the sorted mapping from singletons.
+Returns a new vector of dictionaries with remapped keys.
+
+# Arguments
+- `interaction_summaries`: Vector of Dicts mapping NamedTuples (m1=x, m2=y, ...) to interaction stats
+- `sorted_mapping`: Dict mapping original filter_index to sorted order
+- `motif_sizes`: Vector of motif sizes corresponding to each interaction summary
+
+# Returns
+- New vector of dictionaries with remapped keys (same types as input)
+"""
+function remap_interaction_summaries(interaction_summaries, sorted_mapping::Dict{Int, Int}, motif_sizes::Vector)
+    interaction_summaries === nothing && return nothing
+    
+    remapped = similar(interaction_summaries)
+    for (i, (summary, motif_size)) in enumerate(zip(interaction_summaries, motif_sizes))
+        m_syms = m_symbols(motif_size)
+        # Create new dict with same type as original
+        new_summary = empty(summary)
+        for (key, value) in summary
+            # Remap each filter index in the NamedTuple key
+            # Use tuple() and typeof(key) to preserve exact key type for Dict lookup
+            new_key_values = tuple((get(sorted_mapping, Int(getfield(key, sym)), Int(getfield(key, sym))) for sym in m_syms)...)
+            new_key = typeof(key)(new_key_values)
+            new_summary[new_key] = value
+        end
+        remapped[i] = new_summary
+    end
+    return remapped
+end
+
+export process_singletons!, process_and_register_singleton!, remap_filter_indices!, remap_interaction_summaries
