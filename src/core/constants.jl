@@ -102,6 +102,9 @@ const tag_button_text = "button_text"
 """HTML tag for interaction indicator (true if pair-motif has interaction)"""
 const tag_has_interaction = "has_interaction"
 
+"""HTML tag for significance indicator (true if motif passes significance filter)"""
+const tag_is_significant = "is_significant"
+
 
 # ============================================================================
 # MULTI-MOTIF PROCESSING PARAMETERS

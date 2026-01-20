@@ -595,6 +595,24 @@ span.putBar {
     z-index: 10;
 }
 
+
+/* Insignificant indicator for singleton cards that failed significance filter */
+.insignificant-indicator {
+    position: absolute;
+    bottom: -0.85px;
+    right: 1.75px;
+    font-size: 7.5px;
+    font-weight: 400;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #4D4847;
+    letter-spacing: 0.2px;
+    text-transform: lowercase;
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+}
+
+
 /* ============================================================================
    SINGLETON MODAL STYLES
    ============================================================================ */

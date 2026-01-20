@@ -11,7 +11,7 @@ Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
         save_folder, motif_type, median_val, count_val, banzhafs,
         mode_prefix="mode_", group_id="", button_text="Singleton Motifs", 
-        rna=false
+        rna=false, is_significant::Bool=true
         )
     
     name_base = string(k.filter_index)
@@ -34,7 +34,7 @@ function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gd
     mode_str = mode_prefix * string(idx)
     label = "pattern $(k.filter_index)"
     filter_indices_str = string(k.filter_index)
-    add_motif_entry!(json_motifs, html_dict, mode_str, paths.png.rel, label, texts, idx, filter_indices_str, median_val, group_id, button_text)
+    add_motif_entry!(json_motifs, html_dict, mode_str, paths.png.rel, label, texts, idx, filter_indices_str, median_val, group_id, button_text; is_significant=is_significant)
 end
 
 """
@@ -81,14 +81,21 @@ function process_singletons!(contributions_df, config::ConvMotifConfig, json_mot
     # Build mode prefix with group_id
     mode_prefix = isempty(group_id) ? "mode_" : "mode_$(group_id)_"
 
+    # Check if significant column exists
+    has_significant_col = hasproperty(contributions_df, :significant)
+
     for (i, k) in enumerate(sorted_keys)
         idx = start_idx + i - 1
         pfm = normalize_countmat(count_matrices[k])
         
+        # Extract significance from first row of group (all rows in group have same value)
+        is_significant = has_significant_col ? first(gdf_filters[k].significant) : true
+        
         process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_filters[k], config;
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
-            mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna)
+            mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna,
+            is_significant=is_significant)
     end
     
     # Return next available index

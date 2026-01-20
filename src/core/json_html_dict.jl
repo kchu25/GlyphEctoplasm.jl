@@ -72,6 +72,7 @@ function init_dict_for_html_render()
         tag_group_id,
         tag_button_text,
         tag_has_interaction,
+        tag_is_significant,
     )
 
     html_dict = HTMLDict()
@@ -83,7 +84,7 @@ function init_dict_for_html_render()
 end
 
 """
-    populate_html_dict!(html_dict, ind, json_mode, filter_indices, median_val, group_id, button_text)
+    populate_html_dict!(html_dict, ind, json_mode, filter_indices, median_val, group_id, button_text; is_significant=true)
 
 Populate HTML dictionary with data from JSON mode.
 
@@ -99,6 +100,9 @@ HTML tag field. This provides default values for initial page load.
 - `group_id`: Group identifier for grouping motifs (e.g., "g1", "g2")
 - `button_text`: Custom text for the toggle button
 
+# Keyword Arguments
+- `is_significant`: Whether the motif is significant (default: true). If false, displays "insignificant" indicator.
+
 # Populated Fields
 - Image container ID and source
 - Text container ID
@@ -108,6 +112,7 @@ HTML tag field. This provides default values for initial page load.
 - Filter indices overlay
 - Median value for styling
 - Group ID and button text
+- Significance indicator
 
 # Example
 ```julia
@@ -120,7 +125,8 @@ populate_html_dict!(html_dict, 1, json_mode, "42", 0.523, "g1", "High Confidence
 ```
 """
 function populate_html_dict!(html_dict, idx, json_mode, filter_indices::AbstractString, median_val::Real, 
-                            group_id::AbstractString="", button_text::AbstractString="Singleton Motifs")
+                            group_id::AbstractString="", button_text::AbstractString="Singleton Motifs";
+                            is_significant::Bool=true)
     push!(html_dict[tag_i], "$idx")
     push!(html_dict[tag_div_img_id], "imageContainer$idx")
     push!(html_dict[tag_img_src], json_mode[pwms_str][1])
@@ -144,4 +150,6 @@ function populate_html_dict!(html_dict, idx, json_mode, filter_indices::Abstract
     # Check if text5 (interact_part) is non-empty to indicate interaction
     has_interaction = length(texts) >= 5 && !isempty(texts[5])
     push!(html_dict[tag_has_interaction], has_interaction ? "true" : "false")
+    # Significance indicator
+    push!(html_dict[tag_is_significant], is_significant ? "true" : "false")
 end

@@ -360,7 +360,8 @@ html_template_singleton = mt"""<!DOCTYPE html>
                 median: "{{:median_val}}",
                 group_id: "{{:group_id}}",
                 button_text: "{{:button_text}}",
-                i: {{:i}}
+                i: {{:i}},
+                is_significant: {{:is_significant}}
             },
             {{/:DF}}
         ].filter(x => x.img);
@@ -433,6 +434,7 @@ html_template_singleton = mt"""<!DOCTYPE html>
                 cell.innerHTML = `
                     <img src="${item.img}" alt="${item.alt}" class="singleton-img">
                     <span class="singleton-filter-overlay">${item.alt.replace('pattern ', '')}</span>
+                    ${!item.is_significant ? '<span class="insignificant-indicator">insignificant</span>' : ''}
                 `;
                 
                 grid.appendChild(cell);
@@ -576,7 +578,8 @@ html_template_unified = mt"""<!DOCTYPE html>
                 // Derived
                 influence: "{{{:img_src}}}".replace('.png', '_influence.png'),
                 is_singleton: {{:max_comb}} === 0,
-                has_interaction: {{:has_interaction}}
+                has_interaction: {{:has_interaction}},
+                is_significant: {{:is_significant}}
             },
             {{/:DF}}
         ].filter(x => x.img_src);
@@ -652,6 +655,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                     cell.innerHTML = `
                         <img src="${item.img_src}" alt="${item.img_alt}" class="singleton-img">
                         <span class="singleton-filter-overlay">${item.filter_indices}</span>
+                        ${!item.is_significant ? '<span class="insignificant-indicator">insignificant</span>' : ''}
                     `;
                     grid.appendChild(cell);
                 });
