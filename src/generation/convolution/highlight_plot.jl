@@ -28,14 +28,19 @@ of motif-containing points, revealing clustered patterns in the prediction-label
 function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r2=false, motif_label="Contain motif")
     fig = Figure(size=(800, 800))
     ax = Axis(fig[1, 1], 
-        xlabel="Predictions", 
+        xlabel="Predicted values", 
         ylabel="Labels", 
-        title="Predictions vs Labels",
-        xlabelsize=24,
-        ylabelsize=24,
-        titlesize=28,
-        xticklabelsize=20,
-        yticklabelsize=20)
+        xlabelsize=32,
+        ylabelsize=32,
+        xticklabelsize=28,
+        yticklabelsize=28,
+        topspinevisible=false,
+        rightspinevisible=false,
+        xticksize=8,
+        yticksize=8,
+        spinewidth=2,
+        xgridvisible=false,
+        ygridvisible=false)
 
     # Use a modern, ergonomic color scheme
     nonmotif_color = RGBA(0.88, 0.88, 0.95, 0.85)  # very light gray-blue
@@ -65,7 +70,7 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r
         y_true = pts.labels
         y_pred = pts.proc_prod
         ss_res = sum((y_true .- y_pred).^2)
-        ss_tot = sum((y_true .- StatsBase.mean(y_true)).^2)
+        ss_tot = sum((y_true .- mean(y_true)).^2)
         r2 = 1 - ss_res / ss_tot
         
         # Add R² text to plot
@@ -74,6 +79,6 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r
             space=:relative)
     end
 
-    axislegend(ax, position=:lt, labelsize=20, framevisible=false, backgroundcolor=:white)
+    axislegend(ax, position=:lt, labelsize=28, framevisible=false, backgroundcolor=:white)
     return fig
 end
