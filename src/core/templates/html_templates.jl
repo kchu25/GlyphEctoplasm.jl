@@ -297,6 +297,10 @@ html_template = mt"""<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="multi-modal-right">
+                    <div class="multi-modal-kde-container">
+                        <span class="multi-modal-kde-label">Label vs Processor Product</span>
+                        <img id="multiMotifKde" src="" alt="KDE Plot">
+                    </div>
                     <div class="multi-modal-img-container">
                         <img id="multiMotifImage" src="" alt="Motif Image">
                     </div>
@@ -349,7 +353,9 @@ html_template_singleton = mt"""<!DOCTYPE html>
             {
                 img: "{{{:img_src}}}",
                 influence: "{{{:img_src}}}".replace('.png', '_influence.png'),
+                yy_kde: "{{{:img_src}}}".replace(/\/([^\/]+)\.png$/, '/yy_kde_intersect_$1.png'),
                 alt: "{{:img_alt}}",
+                filter_indices: "{{{:filter_indices}}}",
                 text1: `{{{:p_id1_default}}}`,
                 text2: `{{{:p_id2_default}}}`,
                 text3: `{{{:p_id3_default}}}`,
@@ -495,6 +501,10 @@ html_template_singleton = mt"""<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="singleton-modal-right">
+                    <div class="singleton-modal-kde-container">
+                        <span class="singleton-modal-kde-label">Label vs Processor Product</span>
+                        <img id="singletonModalKde" src="" alt="KDE Plot">
+                    </div>
                     <div class="singleton-modal-img-container">
                         <img id="singletonModalImg" src="" alt="">
                     </div>
@@ -577,6 +587,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                 div_slide_id: "{{:div_slide_id}}",
                 // Derived
                 influence: "{{{:img_src}}}".replace('.png', '_influence.png'),
+                yy_kde: "{{{:img_src}}}".replace(/\/([^\/]+)\.png$/, '/yy_kde_intersect_$1.png'),
                 is_singleton: {{:max_comb}} === 0,
                 has_interaction: {{:has_interaction}},
                 is_significant: {{:is_significant}}
@@ -794,6 +805,10 @@ html_template_unified = mt"""<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="singleton-modal-right">
+                    <div class="singleton-modal-kde-container">
+                        <span class="singleton-modal-kde-label">Label vs Processor Product</span>
+                        <img id="singletonModalKde" src="" alt="KDE Plot">
+                    </div>
                     <div class="singleton-modal-img-container">
                         <img id="singletonModalImg" src="" alt="">
                     </div>
@@ -825,6 +840,10 @@ html_template_unified = mt"""<!DOCTYPE html>
                     </div>
                 </div>
                 <div class="multi-modal-right">
+                    <div class="multi-modal-kde-container">
+                        <span class="multi-modal-kde-label">Label vs Processor Product</span>
+                        <img id="multiMotifKde" src="" alt="KDE Plot">
+                    </div>
                     <div class="multi-modal-img-container">
                         <img id="multiMotifImage" src="" alt="Motif Image">
                     </div>

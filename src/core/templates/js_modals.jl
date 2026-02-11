@@ -155,6 +155,9 @@ function openSingletonModal(index) {
     document.getElementById('singletonModalImg').alt = data.alt;
     document.getElementById('singletonModalInfluence').src = data.influence;
     document.getElementById('singletonModalTitle').innerHTML = data.alt;
+    
+    // Populate yy_kde plot
+    document.getElementById('singletonModalKde').src = data.yy_kde || '';
     document.getElementById('singletonModalText1').innerHTML = data.text1 || '';
     document.getElementById('singletonModalText2').innerHTML = data.text2 || '';
     document.getElementById('singletonModalText3').innerHTML = data.text3 || '';
@@ -253,6 +256,10 @@ function updateMultiModalContent(sliderValue, images, labels, texts, baseFolder)
     // Update relaxed distance influence plot (constant for all sliders in this motif)
     const relaxedInfluencePath = baseFolder + '/influence_relaxed.png';
     document.getElementById('multiMotifInfluenceRelaxed').src = relaxedInfluencePath;
+    
+    // Update yy_kde plot (constant for all sliders in this motif)
+    const kdePath = baseFolder + '/yy_kde_intersect.png';
+    document.getElementById('multiMotifKde').src = kdePath;
 }
 
 function closeMultiModal() {
