@@ -298,7 +298,7 @@ html_template = mt"""<!DOCTYPE html>
                 </div>
                 <div class="multi-modal-right">
                     <div class="multi-modal-kde-container">
-                        <span class="multi-modal-kde-label">Label vs Processor Product</span>
+                        <span class="multi-modal-kde-label">Indicator Plot</span>
                         <img id="multiMotifKde" src="" alt="KDE Plot">
                     </div>
                     <div class="multi-modal-img-container">
@@ -502,7 +502,7 @@ html_template_singleton = mt"""<!DOCTYPE html>
                 </div>
                 <div class="singleton-modal-right">
                     <div class="singleton-modal-kde-container">
-                        <span class="singleton-modal-kde-label">Label vs Processor Product</span>
+                        <span class="singleton-modal-kde-label">Indicator Plot</span>
                         <img id="singletonModalKde" src="" alt="KDE Plot">
                     </div>
                     <div class="singleton-modal-img-container">
@@ -806,7 +806,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                 </div>
                 <div class="singleton-modal-right">
                     <div class="singleton-modal-kde-container">
-                        <span class="singleton-modal-kde-label">Label vs Processor Product</span>
+                        <span class="singleton-modal-kde-label">Indicator Plot</span>
                         <img id="singletonModalKde" src="" alt="KDE Plot">
                     </div>
                     <div class="singleton-modal-img-container">
@@ -841,7 +841,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                 </div>
                 <div class="multi-modal-right">
                     <div class="multi-modal-kde-container">
-                        <span class="multi-modal-kde-label">Label vs Processor Product</span>
+                        <span class="multi-modal-kde-label">Indicator Plot</span>
                         <img id="multiMotifKde" src="" alt="KDE Plot">
                     </div>
                     <div class="multi-modal-img-container">

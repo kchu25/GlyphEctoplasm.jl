@@ -743,7 +743,7 @@ span.putBar {
 .singleton-modal-kde-container {
     width: 100%;
     max-width: 360px;
-    height: 280px;
+    height: 320px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -760,7 +760,7 @@ span.putBar {
 
 .singleton-modal-kde-container img {
     max-width: 100%;
-    max-height: 280px;
+    max-height: 100%;
     object-fit: contain;
 }
 
@@ -769,6 +769,7 @@ span.putBar {
     color: #555;
     font-weight: 500;
     text-align: center;
+    margin-bottom: 6px;
 }
 
 .singleton-modal-img-container {
@@ -790,8 +791,8 @@ span.putBar {
 }
 
 .singleton-modal-img-container img {
-    max-width: 100%;
-    max-height: 100%;
+    max-width: 80%;
+    max-height: 80%;
     object-fit: contain;
     border-radius: 4px;
 }
@@ -963,7 +964,7 @@ span.putBar {
     max-width: 480px;
     width: 480px;
     min-width: 480px;
-    height: 280px;
+    height: 320px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -979,7 +980,7 @@ span.putBar {
 
 .multi-modal-kde-container img {
     max-width: 100%;
-    max-height: 280px;
+    max-height: 100%;
     object-fit: contain;
 }
 
@@ -988,11 +989,12 @@ span.putBar {
     color: #555;
     font-weight: 500;
     text-align: center;
+    margin-bottom: 6px;
 }
 
 .multi-modal-img-container {
-    max-width: 480px;
-    width: 480px;
+    max-width: 80%;
+    width: 80%;
     min-width: 480px;
     height: 140px;
     padding: 1rem;
