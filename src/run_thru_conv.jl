@@ -11,8 +11,11 @@ function obtain_xlim(contributions_df_filtered_singletons, dfs)
     return xlim
 end
 
+
+
+
 function plot_motifs_conv_case(data, m, motif_sizes, 
-        contributions_df_filtered_singletons, dfs, pts;
+        contributions_df_filtered_singletons, dfs, pts, split_indices;
         interaction_summaries=nothing,
         nav_page_count=4,
         enable_colored_borders = true,
@@ -22,6 +25,9 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         page_title="n/a", 
         rna=false
         );
+
+    # get test set indices
+    test_indices = Int.(split_indices.test[1:length(pts.labels)]) # pts contain only test set points
 
     # motif rendering
     xlim = obtain_xlim(contributions_df_filtered_singletons, dfs)
