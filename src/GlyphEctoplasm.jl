@@ -53,6 +53,8 @@ using CairoMakie
 using StatsBase
 using FileIO
 using Printf
+using Colors
+using KernelDensity: kde
 
 # =============================================================================
 # BanzhafPlots Submodule

@@ -12,8 +12,6 @@ function obtain_xlim(contributions_df_filtered_singletons, dfs)
 end
 
 
-
-
 function plot_motifs_conv_case(data, m, motif_sizes, 
         contributions_df_filtered_singletons, dfs, pts, split_indices;
         interaction_summaries=nothing,
@@ -53,7 +51,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     for (index, (motif_size, group_id, button_text)) in enumerate(zip(motif_sizes, group_ids, button_texts))
         @info "Processing multi-motifs of size: $(motif_size)"
         interaction_summary = remapped_interaction_summaries === nothing ? nothing : remapped_interaction_summaries[index]
-        @time next_idx = process_multi_motifs!(dfs, 
+        @time next_idx = process_multi_motifs!(dfs, test_indices, pts,
             config, json_motifs, html_dict;             
                 interaction_summary=interaction_summary,
                 motif_size=motif_size, group_id=group_id, 
