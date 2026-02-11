@@ -8,13 +8,13 @@ Singleton motif processing for convolution-based analysis.
 Process one singleton motif: save files, build metadata, and register in JSON/HTML dicts.
 Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 """
-function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
+function process_and_register_singleton!(test_indices, pts, json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
         save_folder, motif_type, median_val, count_val, banzhafs,
         mode_prefix="mode_", group_id="", button_text="Singleton Motifs", 
         rna=false, is_significant::Bool=true,
         display_index::Union{Int, Nothing}=nothing
         )
-    
+
     # Use display_index for labels/filenames if provided, otherwise use original k.filter_index
     shown_index = display_index === nothing ? k.filter_index : display_index
     
@@ -31,6 +31,15 @@ function process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gd
     # Save MEME file
     save_as_meme(pfm, paths.meme.abs)
     
+    # ——————————————————————— plot the yy kde indicator plot ————————————————————————————
+    intersect_indices = intersect(gdf_row.data_pt_index, test_indices)
+    is_in_intersect = test_indices .∈ Ref(Set(intersect_indices))
+    fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
+    save(
+        joinpath(save_folder, "yy_kde_intersect_$shown_index.png"), 
+        fig_intersect, px_per_unit=1)
+    # ——————————————————————— end ————————————————————————————
+
     # Build metadata texts
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 use_rna=config.use_rna, relaxed_median=nothing)
@@ -53,7 +62,7 @@ Populates JSON and HTML dicts sorted by median banzhaf contribution (descending)
 - `json_motifs`: JSON motif dictionary
 - `html_dict`: HTML dictionary
 
-# Keyword Arguments
+# Keyword Argumentsgdf_row
 - `motif_type::String = "singletons"`: Type identifier for saving paths
 - `save_folder = nothing`: Custom save folder (defaults to config.save_path/motif_type)
 - `group_id::String = ""`: Namespace for this group (e.g., "high_sing")
@@ -64,7 +73,7 @@ Populates JSON and HTML dicts sorted by median banzhaf contribution (descending)
 # Returns
 - `(next_idx, sorted_mapping)`: Tuple of next available index and Dict mapping original filter_index to sorted order
 """
-function process_singletons!(contributions_df, config::ConvMotifConfig, json_motifs, html_dict;
+function process_singletons!(contributions_df, test_indices, pts, config::ConvMotifConfig, json_motifs, html_dict;
         motif_type::String = "singletons",
         save_folder = nothing,
         group_id::String = "",
@@ -100,9 +109,10 @@ function process_singletons!(contributions_df, config::ConvMotifConfig, json_mot
         
         # Extract significance from first row of group (all rows in group have same value)
         is_significant = has_significant_col ? first(gdf_filters[k].significant) : true
-        
+
         # Use sorted index (i) as display_index for consistent numbering
-        process_and_register_singleton!(json_motifs, html_dict, idx, k, pfm, gdf_filters[k], config;
+        process_and_register_singleton!(test_indices, pts, 
+            json_motifs, html_dict, idx, k, pfm, gdf_filters[k], config;
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
             mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna,
@@ -122,7 +132,7 @@ end
 Legacy interface for backward compatibility. Creates a temporary config and calls the main function.
 Prefer using the config-based interface for new code.
 """
-function process_singletons!(contributions_df, data, json_motifs, html_dict;
+function process_singletons!(contributions_df, test_indices, pts, data, json_motifs, html_dict;
         SAVE_PATH = "tmp",
         motif_type = "singletons",
         save_folder = nothing,
@@ -142,7 +152,7 @@ function process_singletons!(contributions_df, data, json_motifs, html_dict;
                             dpi=dpi, alpha=alpha, use_rna=use_rna, xlim=xlim,
                             save_path=save_folder === nothing ? SAVE_PATH : dirname(save_folder))
     
-    return process_singletons!(contributions_df, config, json_motifs, html_dict;
+    return process_singletons!(contributions_df, test_indices, pts, config, json_motifs, html_dict;
                               motif_type=motif_type, save_folder=save_folder,
                               group_id=group_id, button_text=button_text,
                               start_idx=start_idx, pareto_rank=pareto_rank)

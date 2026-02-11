@@ -69,7 +69,7 @@ include(joinpath(GENERATION_DIR, "utils", "distance_keys.jl"))
 # =============================================================================
 # Convolution Module
 # =============================================================================
-
+include(joinpath(GENERATION_DIR, "convolution", "highlight_plot.jl"))
 include(joinpath(GENERATION_DIR, "convolution", "singletons.jl"))
 include(joinpath(GENERATION_DIR, "convolution", "multi_motifs.jl"))
 

@@ -37,7 +37,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     html_dict = init_dict_for_html_render()
 
     next_idx, sorted_mapping = process_singletons!(
-        contributions_df_filtered_singletons, config, json_motifs, html_dict; start_idx=1, rna=rna)
+        contributions_df_filtered_singletons, test_indices, pts, config, json_motifs, html_dict; start_idx=1, rna=rna)
 
     # Remap filter indices in multi-motif DataFrames to use sorted order
     remap_filter_indices!(dfs, sorted_mapping, motif_sizes)
