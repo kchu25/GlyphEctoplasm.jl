@@ -13,7 +13,7 @@ end
 
 
 function plot_motifs_conv_case(data, m, motif_sizes, 
-        contributions_df_filtered_singletons, dfs, pts, split_indices;
+        contributions_df_filtered_singletons, dfs, pts, all_indices;
         interaction_summaries=nothing,
         nav_page_count=4,
         enable_colored_borders = true,
@@ -23,9 +23,6 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         page_title="n/a", 
         rna=false
         );
-
-    # get test set indices
-    test_indices = Int.(split_indices.test[1:length(pts.labels)]) # pts contain only test set points
 
     # motif rendering
     xlim = obtain_xlim(contributions_df_filtered_singletons, dfs)
@@ -37,7 +34,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     html_dict = init_dict_for_html_render()
 
     next_idx, sorted_mapping = process_singletons!(
-        contributions_df_filtered_singletons, test_indices, pts, config, json_motifs, html_dict; start_idx=1, rna=rna)
+        contributions_df_filtered_singletons, all_indices, pts, config, json_motifs, html_dict; start_idx=1, rna=rna)
 
     # Remap filter indices in multi-motif DataFrames to use sorted order
     remap_filter_indices!(dfs, sorted_mapping, motif_sizes)
@@ -51,7 +48,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     for (index, (motif_size, group_id, button_text)) in enumerate(zip(motif_sizes, group_ids, button_texts))
         @info "Processing multi-motifs of size: $(motif_size)"
         interaction_summary = remapped_interaction_summaries === nothing ? nothing : remapped_interaction_summaries[index]
-        @time next_idx = process_multi_motifs!(dfs, test_indices, pts,
+        @time next_idx = process_multi_motifs!(dfs, all_indices, pts,
             config, json_motifs, html_dict;             
                 interaction_summary=interaction_summary,
                 motif_size=motif_size, group_id=group_id, 

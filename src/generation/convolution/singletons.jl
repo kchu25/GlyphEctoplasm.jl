@@ -8,7 +8,7 @@ Singleton motif processing for convolution-based analysis.
 Process one singleton motif: save files, build metadata, and register in JSON/HTML dicts.
 Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 """
-function process_and_register_singleton!(test_indices, pts, json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
+function process_and_register_singleton!(all_indices, pts, json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
         save_folder, motif_type, median_val, count_val, banzhafs,
         mode_prefix="mode_", group_id="", button_text="Singleton Motifs", 
         rna=false, is_significant::Bool=true,
@@ -32,8 +32,8 @@ function process_and_register_singleton!(test_indices, pts, json_motifs, html_di
     save_as_meme(pfm, paths.meme.abs)
     
     # ——————————————————————— plot the yy kde indicator plot ————————————————————————————
-    intersect_indices = intersect(gdf_row.data_pt_index, test_indices)
-    is_in_intersect = test_indices .∈ Ref(Set(intersect_indices))
+    intersect_indices = intersect(gdf_row.data_pt_index, all_indices)
+    is_in_intersect = all_indices .∈ Ref(Set(intersect_indices))
     fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
     save(
         joinpath(save_folder, "yy_kde_intersect_$shown_index.png"), 
@@ -73,7 +73,7 @@ Populates JSON and HTML dicts sorted by median banzhaf contribution (descending)
 # Returns
 - `(next_idx, sorted_mapping)`: Tuple of next available index and Dict mapping original filter_index to sorted order
 """
-function process_singletons!(contributions_df, test_indices, pts, config::ConvMotifConfig, json_motifs, html_dict;
+function process_singletons!(contributions_df, all_indices, pts, config::ConvMotifConfig, json_motifs, html_dict;
         motif_type::String = "singletons",
         save_folder = nothing,
         group_id::String = "",
@@ -111,7 +111,7 @@ function process_singletons!(contributions_df, test_indices, pts, config::ConvMo
         is_significant = has_significant_col ? first(gdf_filters[k].significant) : true
 
         # Use sorted index (i) as display_index for consistent numbering
-        process_and_register_singleton!(test_indices, pts, 
+        process_and_register_singleton!(all_indices, pts, 
             json_motifs, html_dict, idx, k, pfm, gdf_filters[k], config;
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
@@ -132,7 +132,7 @@ end
 Legacy interface for backward compatibility. Creates a temporary config and calls the main function.
 Prefer using the config-based interface for new code.
 """
-function process_singletons!(contributions_df, test_indices, pts, data, json_motifs, html_dict;
+function process_singletons!(contributions_df, all_indices, pts, data, json_motifs, html_dict;
         SAVE_PATH = "tmp",
         motif_type = "singletons",
         save_folder = nothing,
@@ -152,7 +152,7 @@ function process_singletons!(contributions_df, test_indices, pts, data, json_mot
                             dpi=dpi, alpha=alpha, use_rna=use_rna, xlim=xlim,
                             save_path=save_folder === nothing ? SAVE_PATH : dirname(save_folder))
     
-    return process_singletons!(contributions_df, test_indices, pts, config, json_motifs, html_dict;
+    return process_singletons!(contributions_df, all_indices, pts, config, json_motifs, html_dict;
                               motif_type=motif_type, save_folder=save_folder,
                               group_id=group_id, button_text=button_text,
                               start_idx=start_idx, pareto_rank=pareto_rank)

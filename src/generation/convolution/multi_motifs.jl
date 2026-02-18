@@ -99,7 +99,7 @@ JSON and HTML dicts sorted by median banzhaf contribution (descending).
 # Returns
 - Next available index for mode numbering
 """
-function process_multi_motifs!(df, test_indices, pts, config::ConvMotifConfig, json_motifs, html_dict;
+function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, json_motifs, html_dict;
         interaction_summary = nothing,
         motif_size::Int = 2,
         motif_type::String = "pair_motifs",
@@ -148,8 +148,8 @@ function process_multi_motifs!(df, test_indices, pts, config::ConvMotifConfig, j
             joinpath(save_folder_motif, "influence_relaxed.png"), WebDisplayMode; xlim=config.xlim)
 
         # ——————————————————————— plot the yy kde indicator plot ————————————————————————————
-        intersect_indices = intersect(gdf_by_msyms[k].data_pt_index, test_indices)
-        is_in_intersect = test_indices .∈ Ref(Set(intersect_indices))
+        intersect_indices = intersect(gdf_by_msyms[k].data_pt_index, all_indices)
+        is_in_intersect = all_indices .∈ Ref(Set(intersect_indices))
         fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
         save(joinpath(save_folder_motif, "yy_kde_intersect.png"), fig_intersect, px_per_unit=1)
 
@@ -203,7 +203,7 @@ end
 Legacy interface for backward compatibility. Creates a temporary config and calls the main function.
 Prefer using the config-based interface for new code.
 """
-function process_multi_motifs!(df, test_indices, pts, data, json_motifs, html_dict;
+function process_multi_motifs!(df, all_indices, pts, data, json_motifs, html_dict;
         motif_size = 2,
         filter_len = 7,
         motif_type = "pair_motifs",
@@ -223,7 +223,7 @@ function process_multi_motifs!(df, test_indices, pts, data, json_motifs, html_di
                             dpi=dpi, alpha=alpha, use_rna=use_rna, xlim=xlim,
                             save_path=save_folder === nothing ? SAVE_PATH : dirname(save_folder))
     
-    return process_multi_motifs!(df, test_indices, pts, config, json_motifs, html_dict;
+    return process_multi_motifs!(df, all_indices, pts, config, json_motifs, html_dict;
                                 motif_size=motif_size, motif_type=motif_type,
                                 save_folder=save_folder, group_id=group_id,
                                 button_text=button_text, start_idx=start_idx)
