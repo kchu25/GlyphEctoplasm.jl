@@ -13,7 +13,7 @@ end
 
 
 function plot_motifs_conv_case(data, m, motif_sizes, 
-        contributions_df_filtered_singletons, dfs, pts, all_indices;
+        contributions_df_filtered_singletons, dfs, pts, pts_test, all_indices;
         interaction_summaries=nothing,
         nav_page_count=4,
         enable_colored_borders = true,
@@ -58,9 +58,9 @@ function plot_motifs_conv_case(data, m, motif_sizes,
 
     # Generate combined panel figure 
     data_pairs = [
-        (pts.predictions, pts.labels, "Predictions", "Labels", "Predictions vs Labels"),
-        (pts.proc_prod, pts.labels, "Learned Predictions", "Labels", "Learned Predictions vs Labels"),
-        (pts.proc_prod, pts.predictions, "Learned Predictions", "Predictions", "Learned Predictions vs Predictions")
+        (pts_test.predictions, pts_test.labels, "Predictions", "Labels", "Predictions vs Labels"),
+        (pts_test.proc_prod, pts_test.labels, "Learned Predictions", "Labels", "Learned Predictions vs Labels"),
+        (pts_test.proc_prod, pts_test.predictions, "Learned Predictions", "Predictions", "Learned Predictions vs Predictions")
     ]
     
     publication_kde_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
