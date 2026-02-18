@@ -47,7 +47,7 @@ function plot_motifs_mut_case(data, m,
         script_template = script_template,
         css_template = template_css,
         save_path = save_path,
-        nav_page_count = nav_page_count,  # Show navigation for 4 pages: Pattern influence, Generalization, Readme, Statistics
+        nav_page_count = nav_page_count,  # Show navigation for 4 pages: Motif influence, Generalization, Readme, Statistics
         sequence_paths = [""],
         page_title = page_title,
         use_unified = use_unified,

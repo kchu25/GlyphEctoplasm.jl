@@ -65,7 +65,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         (pts.proc_prod, pts.labels, "Processor Product", "Labels", "Processor Product vs Labels"),
         (pts.proc_prod, pts.predictions, "Processor Product", "Predictions", "Processor Product vs Predictions")
     ]
-    publication_scatter_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
+    publication_kde_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
 
     # Render generalization page (index2.html)
     render_generalization_page!(save_path; 

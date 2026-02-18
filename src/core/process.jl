@@ -21,7 +21,7 @@ Process singleton motif data and populate JSON structure.
 # Example Output Structure
 ```julia
 json_mode["pwms"] = ["path/to/pwm.png"]
-json_mode["labels"] = ["pattern 1"]
+json_mode["labels"] = ["motif 1"]
 json_mode["texts"] = [[
     "<a>contribution: 0.45</a>",
     "# occurrences: 1234",
@@ -34,7 +34,7 @@ json_mode["texts"] = [[
 """
 function process_singleton_motif!(json_mode, k, x_motifs, x_avg_contribs, rna)
     push!(json_mode[pwms_str], get_pwm_singleton_save_path(k))
-    push!(json_mode[labels_str], "pattern $(k)")
+    push!(json_mode[labels_str], "motif $(k)")
     
     counts_here = (@view x_motifs[k][:, 1]) |> sum |> Int
     meme_link = "<a href=\"$(x_dir[1])/$k.meme\">.meme file</a>"

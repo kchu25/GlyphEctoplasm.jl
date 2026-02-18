@@ -29,7 +29,7 @@ function updateNav() {
 
     const navHtml = availablePages.map(num => {
         const page = `index${num}.html`;
-        const label = num === 1 ? 'Pattern influence' :
+        const label = num === 1 ? 'Motif influence' :
                       num === 2 ? 'Generalization' :
                       num === 3 ? 'Statistics' :
                       num === 4 ? 'Readme' :

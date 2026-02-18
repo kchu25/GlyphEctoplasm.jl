@@ -439,7 +439,7 @@ html_template_singleton = mt"""<!DOCTYPE html>
                 
                 cell.innerHTML = `
                     <img src="${item.img}" alt="${item.alt}" class="singleton-img">
-                    <span class="singleton-filter-overlay">${item.alt.replace('pattern ', '')}</span>
+                    <span class="singleton-filter-overlay">${item.alt.replace('motif ', '')}</span>
                     ${!item.is_significant ? '<span class="insignificant-indicator">insignificant</span>' : ''}
                 `;
                 
@@ -959,7 +959,7 @@ html_template_generalization = mt"""<!DOCTYPE html>
         
         const navHtml = availablePages.map(num => {
             const page = 'index' + num + '.html';
-            const label = num === 1 ? 'Pattern influence' :
+            const label = num === 1 ? 'Motif influence' :
                           num === 2 ? 'Generalization' :
                           num === 3 ? 'Statistics' :
                           num === 4 ? 'Readme' :

@@ -45,7 +45,7 @@ function process_and_register_singleton!(test_indices, pts, json_motifs, html_di
                                 use_rna=config.use_rna, relaxed_median=nothing)
     
     mode_str = mode_prefix * string(idx)
-    label = "pattern $(shown_index)"
+    label = "motif $(shown_index)"
     filter_indices_str = string(shown_index)
     add_motif_entry!(json_motifs, html_dict, mode_str, paths.png.rel, label, texts, idx, filter_indices_str, median_val, group_id, button_text; is_significant=is_significant)
 end

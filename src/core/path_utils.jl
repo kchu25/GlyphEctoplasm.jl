@@ -41,7 +41,7 @@ function get_descriptive_str(keys_, ds)
     ks = [(keys_[i], keys_[i+1]) for i = 1:length(keys_)-1]
     str = ""
     for ((m1, m2), d) in zip(ks, ds)
-        str *= "pattern $(m1) and $(m2) are $(d) nucleotides apart<br>"
+        str *= "motif $(m1) and $(m2) are $(d) nucleotides apart<br>"
     end
     return str
 end

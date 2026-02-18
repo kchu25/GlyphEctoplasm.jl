@@ -6,66 +6,170 @@ function _compute_r2(y_true::AbstractVector{T}, y_pred::AbstractVector{T}) where
     return T(1) - ss_res / ss_tot
 end
 
-"""
-    publication_scatter_panel(data_pairs; 
-        figsize=(1200, 400), markersize=6, alpha=0.5, save_path=nothing)
+# Shared axis spine/grid style
+function _style_axis!(ax)
+    ax.xgridvisible      = false
+    ax.ygridvisible      = false
+    ax.topspinevisible   = false
+    ax.rightspinevisible = false
+    ax.spinewidth        = 0.8
+    ax.xtickwidth        = 0.8
+    ax.ytickwidth        = 0.8
+end
 
-Create a publication-quality multi-panel scatter plot with aligned axes.
-`data_pairs` is a vector of (x, y, xlabel, ylabel, title) tuples.
 """
-function publication_scatter_panel(data_pairs; 
-        figsize=(1200, 400), markersize=6, alpha=0.5, save_path=nothing)
-    
-    n_panels = length(data_pairs)
-    
-    fig = Figure(size=figsize, fontsize=12)
-    
-    axes = Axis[]
-    
+    publication_kde_panel(data_pairs;
+        figsize=(1200, 400), nlevels=12, colormap=:BuPu,
+        hist_bins=40, bandwidth=nothing, dpi=300, save_path=nothing)
+
+Create a publication-quality multi-panel 2D KDE density plot with
+marginal histograms. Uses smooth kernel density estimation (via
+KernelDensity.jl + contourf!) instead of hexbins, giving a continuous,
+artifact-free density cloud — the standard in genomics expression papers.
+
+`data_pairs`         vector of (x, y, xlabel, ylabel, title) tuples.
+`nlevels`            number of filled contour levels; more = smoother gradient.
+`colormap`           colormap; default :BuPu (white→purple, perceptually uniform).
+`bandwidth`          2D KDE bandwidth (nothing = automatic Silverman's rule).
+`marginal_bandwidth` 1D KDE bandwidth for marginals (nothing = automatic).
+`dpi`                dots-per-inch for raster output; 300 for print-ready.
+"""
+function publication_kde_panel(data_pairs;
+        figsize=(1200, 400), nlevels=12,
+        colormap=:BuPu,
+        bandwidth=nothing, marginal_bandwidth=nothing, dpi=300, save_path=nothing)
+
+    n = length(data_pairs)
+
+    fig = Figure(
+        size           = figsize,
+        fontsize       = 11,
+        figure_padding = (12, 20, 12, 12),
+    )
+
+    main_axes = Axis[]
+
     for (i, (x, y, xlabel, ylabel, title)) in enumerate(data_pairs)
-        r2 = _compute_r2(y, x)
-        
-        ax = Axis(fig[1, i],
-            xlabel=xlabel,
-            ylabel=ylabel,
-            title=title,
-            titlesize=14,
-            xlabelsize=12,
-            ylabelsize=12,
-            aspect=DataAspect()
+        xv = vec(Float64.(x))
+        yv = vec(Float64.(y))
+        r2 = _compute_r2(yv, xv)  # y_true=y (labels), y_pred=x (predictions)
+
+        col = fig[1, i] = GridLayout()
+
+        # ── top marginal ────────────────────────────────────────────────────
+        ax_top = Axis(col[1, 1];
+            xticksvisible      = false,
+            xticklabelsvisible = false,
+            yticksvisible      = false,
+            yticklabelsvisible = false,
+            leftspinevisible   = false,
+            rightspinevisible  = false,
+            topspinevisible    = false,
+            bottomspinevisible = false,
+            xgridvisible       = false,
+            ygridvisible       = false,
+            height             = 50,
         )
-        push!(axes, ax)
-        
-        scatter!(ax, vec(x), vec(y), 
-            markersize=markersize, 
-            color=(:steelblue, alpha),
-            strokewidth=0.5,
-            strokecolor=:black
+        density!(ax_top, xv;
+            color       = (:gray55, 0.45),
+            strokecolor = (:gray40, 0.8),
+            strokewidth = 1.0,
+            (isnothing(marginal_bandwidth) ? () : (bandwidth = marginal_bandwidth,))...
         )
-        
-        # Add identity line
-        lims = (min(minimum(x), minimum(y)), max(maximum(x), maximum(y)))
-        lines!(ax, [lims[1], lims[2]], [lims[1], lims[2]], 
-            color=:red, linewidth=1.5, linestyle=:dash)
-        
-        # Add R² annotation
-        text!(ax, 0.05, 0.95, 
-            text=@sprintf("R² = %.3f", r2),
-            space=:relative,
-            fontsize=11,
-            font=:bold
+
+        # ── main KDE axis ───────────────────────────────────────────────────
+        ax = Axis(col[2, 1];
+            xlabel         = xlabel,
+            ylabel         = ylabel,
+            title          = title,
+            titlesize      = 12,
+            xlabelsize     = 11,
+            ylabelsize     = 11,
+            xticklabelsize = 9,
+            yticklabelsize = 9,
+            aspect         = DataAspect(),
         )
+        _style_axis!(ax)
+        push!(main_axes, ax)
+
+        # 2D KDE — evaluate on a regular grid then filled contour
+        kd = isnothing(bandwidth) ?
+            KernelDensity.kde((xv, yv)) :
+            KernelDensity.kde((xv, yv); bandwidth=(bandwidth, bandwidth))
+
+        # contourf gives the smooth filled gradient
+        cf = contourf!(ax,
+            kd.x, kd.y, kd.density;
+            levels   = nlevels,
+            colormap = colormap,
+            extendhigh = :auto,
+        )
+
+        # ── right marginal ──────────────────────────────────────────────────
+        ax_right = Axis(col[2, 2];
+            xticksvisible      = false,
+            xticklabelsvisible = false,
+            yticksvisible      = false,
+            yticklabelsvisible = false,
+            leftspinevisible   = false,
+            rightspinevisible  = false,
+            topspinevisible    = false,
+            bottomspinevisible = false,
+            xgridvisible       = false,
+            ygridvisible       = false,
+            width              = 50,
+        )
+        density!(ax_right, yv;
+            color       = (:gray55, 0.45),
+            strokecolor = (:gray40, 0.8),
+            strokewidth = 1.0,
+            direction   = :y,
+            (isnothing(marginal_bandwidth) ? () : (bandwidth = marginal_bandwidth,))...
+        )
+
+        # ── colorbar ────────────────────────────────────────────────────────
+        Colorbar(col[2, 3], cf;
+            label         = "density",
+            labelsize     = 9,
+            ticklabelsize = 8,
+            tickwidth     = 0.6,
+            width         = 8,
+            spinewidth    = 0.6,
+        )
+
+        linkyaxes!(ax, ax_right)
+        linkxaxes!(ax, ax_top)
+
+        # identity line — solid black
+        lims = (min(minimum(xv), minimum(yv)), max(maximum(xv), maximum(yv)))
+        lines!(ax, [lims[1], lims[2]], [lims[1], lims[2]];
+            color     = :black,
+            linewidth = 1.5,
+        )
+
+        # R² annotation
+        text!(ax, 0.05, 0.93;
+            text     = @sprintf("R² = %.3f", r2),
+            space    = :relative,
+            align    = (:left, :top),
+            fontsize = 10,
+            font     = :bold,
+            color    = :black,
+        )
+
+        rowgap!(col, 1, 2)
+        colgap!(col, 1, 2)
+        colgap!(col, 2, 4)
+        rowsize!(col, 1, Relative(0.15))
+        colsize!(col, 2, Relative(0.15))
     end
-    
-    # Link y-axes for alignment if they share the same ylabel
-    linkyaxes!(axes...)
-    
-    # Adjust column gaps
-    colgap!(fig.layout, 20)
-    
+
+    length(main_axes) > 1 && linkyaxes!(main_axes...)
+    colgap!(fig.layout, 28)
+
     if !isnothing(save_path)
-        save(save_path, fig, px_per_unit=1)
+        save(save_path, fig; px_per_unit = dpi / 96)
     end
-    
+
     return fig
 end
