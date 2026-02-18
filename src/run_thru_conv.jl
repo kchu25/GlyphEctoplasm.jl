@@ -62,9 +62,10 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     # Generate combined panel figure 
     data_pairs = [
         (pts.predictions, pts.labels, "Predictions", "Labels", "Predictions vs Labels"),
-        (pts.proc_prod, pts.labels, "Processor Product", "Labels", "Processor Product vs Labels"),
-        (pts.proc_prod, pts.predictions, "Processor Product", "Predictions", "Processor Product vs Predictions")
+        (pts.proc_prod, pts.labels, "Learned Predictions", "Labels", "Learned Predictions vs Labels"),
+        (pts.proc_prod, pts.predictions, "Learned Predictions", "Predictions", "Learned Predictions vs Predictions")
     ]
+    
     publication_kde_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
 
     # Render generalization page (index2.html)
