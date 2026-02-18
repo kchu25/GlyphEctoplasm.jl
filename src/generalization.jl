@@ -94,8 +94,8 @@ function publication_kde_panel(data_pairs;
 
         # 2D KDE — evaluate on a regular grid then filled contour
         kd = isnothing(bandwidth) ?
-            KernelDensity.kde((xv, yv)) :
-            KernelDensity.kde((xv, yv); bandwidth=(bandwidth, bandwidth))
+            kde((xv, yv)) :
+            kde((xv, yv); bandwidth=(bandwidth, bandwidth))
 
         # contourf gives the smooth filled gradient
         cf = contourf!(ax,
