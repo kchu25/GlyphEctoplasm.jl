@@ -2,24 +2,19 @@
 # hot accumulation helper
 # accumulate_window! accumulates the window X[:, s:e, 1, didx] into `dest`.
 # Accepts arbitrary Integer types for indices (e.g. Int32) and converts them to
-# the platform `Int` before slicing. Returns the (possibly allocated) buffer
-# which callers should reuse to avoid repeated allocations.
+# the platform `Int` before slicing. Returns `nothing` (buffer argument kept for
+# backward compatibility but is no longer used).
 function accumulate_window!(dest::AbstractMatrix{T}, X, s::Integer, e::Integer, 
                            didx::Integer, buf::Union{Nothing,AbstractMatrix{T}}=nothing) where T<:AbstractFloat
     si = Int(s); ei = Int(e); didx_i = Int(didx)
-    window = @view X[:, si:ei, 1, didx_i]
-
-    if eltype(X) === T
-        @inbounds dest .+= window
-        return buf
-    else
-        if buf === nothing
-            buf = Matrix{T}(undef, size(dest))  # undef is faster than similar
+    nrows = size(dest, 1)  # always 4 for DNA
+    # Single tight loop: convert + accumulate in one pass, no view/broadcast overhead
+    @inbounds for col in 0:(ei - si)
+        for row in 1:nrows
+            dest[row, col + 1] += T(X[row, si + col, 1, didx_i])
         end
-        @inbounds @. buf = T(window)  # fused broadcast
-        @inbounds @. dest += buf
-        return buf
     end
+    return nothing  # buffer no longer needed
 end
 
 # singleton wrapper (thin)
@@ -31,17 +26,21 @@ function build_singleton_count_matrices(gdf_filters::GroupedDataFrame, data,
     res = Dict{key_type, Matrix{T}}()
     sizehint!(res, ngroups)
     
+    X = data.X
+    filter_span = filter_len - 1
+
     @info "Building singleton count matrices for $(ngroups) filters..."
     @showprogress for k in keys(gdf_filters)
         g = gdf_filters[k]
         mat = zeros(T, 4, filter_len)
-        buf = nothing
-        
-        # Indexed iteration
-        @inbounds for i in axes(g, 1) # through rows
-            s = g.position[i]
-            e = s + filter_len - 1
-            buf = accumulate_window!(mat, data.X, s, e, g.data_pt_index[i], buf)
+
+        # Extract columns once to avoid repeated DataFrame indexing overhead
+        positions  = g.position
+        data_pt_ids = g.data_pt_index
+
+        @inbounds for i in eachindex(positions)
+            s = Int(positions[i])
+            accumulate_window!(mat, X, s, s + filter_span, data_pt_ids[i])
         end
         res[k] = mat
     end
@@ -63,32 +62,28 @@ function build_count_matrices_and_highlight(gdf_d::GroupedDataFrame,
     X = data.onehot_sequences
     get_num_cols(mode) = sum(mode) + motif_size * filter_len
     
-    # Pre-allocate dict with known size
+    # Pre-allocate dicts with known size
     ngroups = length(gdf_d)
     key_type = typeof(first(keys(gdf_d)))
     key_to_mat = Dict{key_type, Matrix{T}}()
     sizehint!(key_to_mat, ngroups)
-
-    # also make the highlighted regions
     highlighted_regions = Dict{key_type, Vector{UnitRange{Int}}}()
-    for k in keys(gdf_d)
-        highlighted_regions[k] = Vector{UnitRange{Int}}()
-    end
+    sizehint!(highlighted_regions, ngroups)
 
     for k in keys(gdf_d)
         g = gdf_d[k]
         cols = get_num_cols(Tuple(Int(v) for v in values(k)))
         mat = zeros(T, 4, cols)
-        buf = nothing
-                
-        # Use indexed iteration for clarity and potential performance
-        @inbounds for i in 1:length(g.start)
-            buf = accumulate_window!(mat, X, g.start[i], g.end[i], 
-                                    g.data_pt_index[i], buf)
+
+        # Extract columns once to avoid repeated DataFrame indexing
+        starts      = g.start
+        ends        = g[!, :end]
+        data_pt_ids = g.data_pt_index
+
+        @inbounds for i in eachindex(starts)
+            accumulate_window!(mat, X, starts[i], ends[i], data_pt_ids[i])
         end
         key_to_mat[k] = mat
-
-        # highlighted regions
         highlighted_regions[k] = make_highlighted_region(motif_size, k, filter_len)
     end
  
