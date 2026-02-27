@@ -97,9 +97,13 @@ function publication_kde_panel(data_pairs;
             kde((xv, yv)) :
             kde((xv, yv); bandwidth=(bandwidth, bandwidth))
 
+        # Power-transform density to expand low-density tail regions for better visibility
+        # sqrt and higher powers compress the high-density core while stretching tails
+        density_transformed = kd.density.^0.3
+
         # contourf gives the smooth filled gradient
         cf = contourf!(ax,
-            kd.x, kd.y, kd.density;
+            kd.x, kd.y, density_transformed;
             levels   = nlevels,
             colormap = colormap,
             extendhigh = :auto,
