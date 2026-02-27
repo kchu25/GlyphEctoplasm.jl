@@ -19,6 +19,37 @@ function estimate_point_density(x, y)
     return densities
 end
 
+
+"""
+    _sync_xy_ticks!(ax; n_ticks=5)
+
+Force an Axis to have identical x and y limits and identical tick positions,
+which is appropriate for any prediction-vs-observed plot where both axes
+represent the same quantity.  Computes a shared range from the current data
+limits, generates `n_ticks` nicely rounded ticks, and applies them to both axes.
+"""
+function _sync_xy_ticks!(ax; n_ticks=5)
+    # Read current auto limits
+    xl = ax.xaxis.attributes.limits[]
+    yl = ax.yaxis.attributes.limits[]
+    lo = min(xl[1], yl[1])
+    hi = max(xl[2], yl[2])
+
+    # Compute nice round tick positions using Makie's own algorithm
+    ticks = Makie.get_tickvalues(Makie.LinearTicks(n_ticks), lo, hi)
+
+    # Extend limits slightly beyond outermost ticks
+    margin = (ticks[end] - ticks[1]) * 0.04
+    shared_lims = (ticks[1] - margin, ticks[end] + margin)
+
+    ax.xticks = ticks
+    ax.yticks = ticks
+    xlims!(ax, shared_lims)
+    ylims!(ax, shared_lims)
+    return ax
+end
+
+
 """
     plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r2=false, motif_label="Contain motif")
 
@@ -205,5 +236,8 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r
 
     axislegend(ax, position=:lt, labelsize=28, markersize=18, 
                framevisible=false, backgroundcolor=:white)
+
+    _sync_xy_ticks!(ax)
+    
     return fig
 end
