@@ -136,7 +136,7 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r
     if length(bg_x) > 0
         scatter!(ax, bg_x, bg_y,
             color=RGBA(0.70, 0.70, 0.80, 0.85), 
-            markersize=8, 
+            markersize=1, 
             marker=:circle,
             strokewidth=0.7, 
             strokecolor=RGBA(0.5, 0.5, 0.6, 0.5))
@@ -169,7 +169,7 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r
     # ═══════════════════════════════════════════════════════════════════════
     if n_fg > 0
         scatter!(ax, fg_x, fg_y,
-            color=RGBA(0.98, 0.40, 0.10, 0.90), markersize=7, marker=:circle, 
+            color=RGBA(0.98, 0.40, 0.10, 0.90), markersize=6, marker=:circle, 
             strokewidth=0.7, strokecolor=RGBA(0.1, 0.1, 0.1, 0.6))
         
         # Legend entry with matching orange color
