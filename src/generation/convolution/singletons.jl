@@ -214,4 +214,57 @@ function remap_interaction_summaries(interaction_summaries, sorted_mapping::Dict
     return remapped
 end
 
-export process_singletons!, process_and_register_singleton!, remap_filter_indices!, remap_interaction_summaries
+"""
+    compute_sorted_mapping_and_remap!(contributions_df, dfs, motif_sizes;
+        interaction_summaries=nothing, pareto_rank=nothing)
+
+Compute the sorted mapping from singleton filter indices to their sorted order
+(sorted by median Banzhaf contribution, descending), and remap all DataFrames
+and interaction summaries in-place.
+
+This is a lightweight alternative to `process_singletons!` that only performs
+the sorting and remapping logic without any rendering, saving, or registration.
+
+# Arguments
+- `contributions_df`: DataFrame with `:filter_index` and `:banzhaf` columns (singletons)
+- `dfs`: Vector of DataFrames containing multi-motif data (remapped in-place)
+- `motif_sizes`: Vector of motif sizes corresponding to each DataFrame in `dfs`
+- `interaction_summaries`: Optional vector of interaction summary Dicts (default: `nothing`)
+- `pareto_rank`: Optional Pareto rank filter (default: `nothing`)
+
+# Returns
+- `(sorted_mapping, remapped_interaction_summaries)` where:
+  - `sorted_mapping::Dict{Int,Int}`: original filter_index → 1-based sorted order
+  - `remapped_interaction_summaries`: remapped interaction summaries (or `nothing`)
+
+# Side effects
+- Mutates `contributions_df.filter_index` to use sorted order
+- Mutates columns in `dfs` via `remap_filter_indices!`
+"""
+function compute_sorted_mapping_and_remap!(contributions_df, dfs, motif_sizes;
+        interaction_summaries=nothing, pareto_rank=nothing)
+    # Group by filter_index and compute sorted keys
+    sep_by = build_grouping_columns(:filter_index)
+    gdf_filters = groupby(contributions_df, sep_by)
+    sorted_keys, _, _, _, _ =
+        build_sorted_keys_and_maps(gdf_filters, sep_by; pareto_rank=pareto_rank)
+
+    # Build sorted_mapping: original filter_index => sorted order (1-based)
+    sorted_mapping = Dict{Int, Int}()
+    for (i, k) in enumerate(sorted_keys)
+        sorted_mapping[k.filter_index] = i
+    end
+
+    # Remap contributions_df.filter_index in-place
+    contributions_df.filter_index = [sorted_mapping[idx] for idx in contributions_df.filter_index]
+
+    # Remap multi-motif DataFrames in-place
+    remap_filter_indices!(dfs, sorted_mapping, motif_sizes)
+
+    # Remap interaction summaries
+    remapped_interaction_summaries = remap_interaction_summaries(interaction_summaries, sorted_mapping, motif_sizes)
+
+    return sorted_mapping, remapped_interaction_summaries
+end
+
+export process_singletons!, process_and_register_singleton!, remap_filter_indices!, remap_interaction_summaries, compute_sorted_mapping_and_remap!
