@@ -81,6 +81,7 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
         start_idx::Int = 1,
         pareto_rank = nothing,
         rna=false,
+        get_sorted_mapping_only=false
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
     mkpath(save_folder)
@@ -89,6 +90,17 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
     gdf_filters = groupby(contributions_df, sep_by)
     sorted_keys, median_map, _, count_map, list_of_banzhafs =
         build_sorted_keys_and_maps(gdf_filters, sep_by; pareto_rank=pareto_rank)
+
+    # Build sorted_mapping: original filter_index => sorted order (1-based)
+    sorted_mapping = Dict{Int, Int}()
+    for (i, k) in enumerate(sorted_keys)
+        sorted_mapping[k.filter_index] = i
+    end
+
+    if get_sorted_mapping_only
+        return nothing, sorted_mapping
+    end
+
     count_matrices = build_singleton_count_matrices(gdf_filters, config.data, config.filter_len, config.float_type)
 
     # Build mode prefix with group_id
@@ -97,11 +109,7 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
     # Check if significant column exists
     has_significant_col = hasproperty(contributions_df, :significant)
 
-    # Build sorted_mapping: original filter_index => sorted order (1-based)
-    sorted_mapping = Dict{Int, Int}()
-    for (i, k) in enumerate(sorted_keys)
-        sorted_mapping[k.filter_index] = i
-    end
+
 
     for (i, k) in enumerate(sorted_keys)
         idx = start_idx + i - 1
