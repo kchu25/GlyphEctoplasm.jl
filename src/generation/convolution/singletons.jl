@@ -98,6 +98,8 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
     end
 
     if get_sorted_mapping_only
+        # do the remapping inplace
+        contributions_df.filter_index = [sorted_mapping[idx] for idx in contributions_df.filter_index]
         return nothing, sorted_mapping
     end
 
