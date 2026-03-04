@@ -50,12 +50,13 @@ function save_motif_logo(pfm, png_path, median_val; dpi=65, alpha=1.0, highlight
     if highlighted_regions === nothing
         save_logoplot(pfm, png_path; 
             dpi=dpi, alpha=alpha, uniform_color=false, pos=median_val > 0, 
-            yaxis=false, rna=rna
+            _margin_=0(EntroPlots.Plots.mm), tight=true, yaxis=false, xaxis=false, 
+            rna=rna
             )
     else
         save_logoplot(pfm, png_path; dpi=dpi, alpha=alpha, uniform_color=false, 
             pos=median_val > 0, highlighted_regions=highlighted_regions,
-            yaxis=false, rna=rna
+            _margin_=0(EntroPlots.Plots.mm), tight=true, yaxis=false, xaxis=false, rna=rna
             )
     end
 end
