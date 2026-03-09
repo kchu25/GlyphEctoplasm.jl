@@ -103,7 +103,8 @@ consensus, and file links.
 function build_metadata_texts(pfm, paths, median_val, count_val; 
                              interaction_summary_mode_str=nothing,
                              use_rna=false, relaxed_median=nothing,
-                             show_meme_and_csv=true)
+                             show_meme_and_csv=true,
+                             fk_pvalue=nothing)
 
     @assert !isnothing(count_val) "number of counts used to construct the logo must be provided"
     if !isnothing(pfm)                             
@@ -147,7 +148,13 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
         end
     end
     
-    return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, ""]
+    fk_pvalue_str = if isnothing(fk_pvalue)
+        ""
+    else
+        string("pvalue (variance): <strong>", @sprintf("%.2g", fk_pvalue), "</strong>")
+    end
+
+    return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, fk_pvalue_str]
 end
 
 export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts

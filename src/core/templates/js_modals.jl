@@ -163,6 +163,7 @@ function openSingletonModal(index) {
     document.getElementById('singletonModalText3').innerHTML = data.text3 || '';
     document.getElementById('singletonModalText4').innerHTML = data.text4 || '';
     document.getElementById('singletonModalText5').innerHTML = data.text5 || '';
+    document.getElementById('singletonModalText6').innerHTML = data.text6 || '';
     
     // Show modal
     document.getElementById('singletonModal').style.display = 'block';
@@ -247,6 +248,7 @@ function updateMultiModalContent(sliderValue, images, labels, texts, baseFolder)
     document.getElementById('multiMotifText3').innerHTML = texts[sliderValue][2] || '';
     document.getElementById('multiMotifText4').innerHTML = texts[sliderValue][3] || '';
     document.getElementById('multiMotifText5').innerHTML = texts[sliderValue][4] || '';
+    document.getElementById('multiMotifText6').innerHTML = texts[sliderValue][5] || '';
     document.getElementById('multiMotifRangeLabel').innerHTML = titleText;
     
     // Update fixed distance influence plot (changes with slider)

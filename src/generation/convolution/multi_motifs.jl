@@ -68,7 +68,7 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 interaction_summary_mode_str=interaction_summary_mode_str,
                                 use_rna=config.use_rna, 
-                                relaxed_median=relaxed_median)
+                                relaxed_median=relaxed_median, fk_pvalue=1.0)
     
     label = get_descriptive_str(k, d_key)
     # Add variant without populating HTML (HTML will be populated once at the end)

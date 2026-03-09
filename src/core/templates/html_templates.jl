@@ -294,6 +294,7 @@ html_template = mt"""<!DOCTYPE html>
                         <div id="multiMotifText3" class="multi-info-item"></div>
                         <div id="multiMotifText4" class="multi-info-item"></div>
                         <div id="multiMotifText5" class="multi-info-item"></div>
+                        <div id="multiMotifText6" class="multi-info-item"></div>
                     </div>
                 </div>
                 <div class="multi-modal-right">
@@ -498,6 +499,7 @@ html_template_singleton = mt"""<!DOCTYPE html>
                         <div id="singletonModalText3" class="singleton-info-item"></div>
                         <div id="singletonModalText4" class="singleton-info-item"></div>
                         <div id="singletonModalText5" class="singleton-info-item"></div>
+                        <div id="singletonModalText6" class="singleton-info-item"></div>
                     </div>
                 </div>
                 <div class="singleton-modal-right">
@@ -802,6 +804,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                         <div id="singletonModalText3" class="singleton-info-item"></div>
                         <div id="singletonModalText4" class="singleton-info-item"></div>
                         <div id="singletonModalText5" class="singleton-info-item"></div>
+                        <div id="singletonModalText6" class="singleton-info-item"></div>
                     </div>
                 </div>
                 <div class="singleton-modal-right">
@@ -837,6 +840,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                         <div id="multiMotifText3" class="multi-info-item"></div>
                         <div id="multiMotifText4" class="multi-info-item"></div>
                         <div id="multiMotifText5" class="multi-info-item"></div>
+                        <div id="multiMotifText6" class="multi-info-item"></div>
                     </div>
                 </div>
                 <div class="multi-modal-right">

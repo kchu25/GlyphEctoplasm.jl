@@ -42,7 +42,7 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
 
     # Build metadata texts
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
-                                use_rna=config.use_rna, relaxed_median=nothing)
+                                use_rna=config.use_rna, relaxed_median=nothing, fk_pvalue=1.0)
     
     mode_str = mode_prefix * string(idx)
     label = "motif $(shown_index)"
