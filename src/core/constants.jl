@@ -115,3 +115,6 @@ const NUM_CONFIG_WITH_DISTANCES = 16
 
 """Minimum number of data points required for a distance configuration to be included"""
 const NUM_minimum_pts_FOR_BOXPLOT = 25
+
+"""Cutoff for Fligner-Killeen p-value significance (above this is gray/not significant)"""
+const FK_PVALUE_CUTOFF = 0.05
