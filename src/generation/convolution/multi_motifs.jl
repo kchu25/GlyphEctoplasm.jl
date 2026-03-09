@@ -157,7 +157,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         fk_test_result = FlignerKilleenTest(
                 pts.labels, 
                 (@view pts.labels[intersect_indices]))
-        fk_pvalue = round(pvalue(fk_test_result); digits=2)
+        fk_pvalue = round(pvalue(fk_test_result); digits=4)
 
         # ——————————————————————— process d_syms variants ————————————————————————————
         gdf_by_dsyms = groupby(gdf_by_msyms[k], build_grouping_columns(:distances; motif_size=motif_size))
