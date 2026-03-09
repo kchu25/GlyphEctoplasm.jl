@@ -154,7 +154,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         save(joinpath(save_folder_motif, "yy_kde_intersect.png"), fig_intersect, px_per_unit=1)
 
         # ————— Fligner Killeen Test for variance comparison ————————
-        fk_test_result = FlignerKilleenTest(
+        fk_test_result = BrownForsytheTest(
                 pts.labels, 
                 (@view pts.labels[intersect_indices]))
         fk_pvalue = round(pvalue(fk_test_result); digits=4)

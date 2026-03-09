@@ -152,10 +152,10 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
         ""
     elseif fk_pvalue > FK_PVALUE_CUTOFF
         # Not significant — render entire row in gray
-        string("<span style=\"color: gray;\">p-value (variance, Fligner-Killeen test): ", @sprintf("%.2g", fk_pvalue), "</span>")
+        string("<span style=\"color: gray;\">p-value (variance, Brown-Forsythe test): ", @sprintf("%.2g", fk_pvalue), "</span>")
     else
         # Significant — p-value in bold black
-        string("p-value (variance, Fligner-Killeen test): <strong>", @sprintf("%.2g", fk_pvalue), "</strong>")
+        string("p-value (variance, Brown-Forsythe test): <strong>", @sprintf("%.2g", fk_pvalue), "</strong>")
     end
 
     return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, fk_pvalue_str]
