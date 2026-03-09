@@ -55,7 +55,7 @@ using FileIO
 using Printf
 using Colors
 using KernelDensity: kde
-using HypothesisTests: FlignerKilleenTest
+using HypothesisTests: pvalue, FlignerKilleenTest
 
 # =============================================================================
 # BanzhafPlots Submodule

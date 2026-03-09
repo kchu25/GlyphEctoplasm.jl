@@ -31,18 +31,25 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
     # Save MEME file
     save_as_meme(pfm, paths.meme.abs)
     
-    # ——————————————————————— plot the yy kde indicator plot ————————————————————————————
+    # —————————— plot the yy kde indicator plot ————————————————
     intersect_indices = intersect(gdf_row.data_pt_index, all_indices)
     is_in_intersect = all_indices .∈ Ref(Set(intersect_indices))
     fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
     save(
         joinpath(save_folder, "yy_kde_intersect_$shown_index.png"), 
         fig_intersect, px_per_unit=1)
+
+    # ————— Fligner Killeen Test for variance comparison ————————
+    fk_test_result = FlignerKilleenTest(
+            pts.labels, 
+            (@view pts.labels[intersect_indices]))
+    fk_pvalue = round(pvalue(fk_test_result); digits=2)
+
     # ——————————————————————— end ————————————————————————————
 
     # Build metadata texts
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
-                                use_rna=config.use_rna, relaxed_median=nothing, fk_pvalue=1.0)
+                                use_rna=config.use_rna, relaxed_median=nothing, fk_pvalue=fk_pvalue)
     
     mode_str = mode_prefix * string(idx)
     label = "motif $(shown_index)"

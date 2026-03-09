@@ -49,7 +49,7 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
         pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig;
         save_folder_motif, motif_type_subdir, relaxed_median, 
         interaction_summary_mode_str = nothing,
-        rna=false)
+        rna=false, fk_pvalue=1.0)
     
     d_str = get_d_str(d_key)
     paths = build_motif_paths(d_str, save_folder_motif, motif_type_subdir)
@@ -68,7 +68,7 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 interaction_summary_mode_str=interaction_summary_mode_str,
                                 use_rna=config.use_rna, 
-                                relaxed_median=relaxed_median, fk_pvalue=1.0)
+                                relaxed_median=relaxed_median, fk_pvalue=fk_pvalue)
     
     label = get_descriptive_str(k, d_key)
     # Add variant without populating HTML (HTML will be populated once at the end)
@@ -147,11 +147,17 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         save_box_scatter_distance_relaxed(list_of_banzhafs[k], 
             joinpath(save_folder_motif, "influence_relaxed.png"), WebDisplayMode; xlim=config.xlim)
 
-        # ——————————————————————— plot the yy kde indicator plot ————————————————————————————
+        # —————————— plot the yy kde indicator plot ———————————————
         intersect_indices = intersect(gdf_by_msyms[k].data_pt_index, all_indices)
         is_in_intersect = all_indices .∈ Ref(Set(intersect_indices))
         fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
         save(joinpath(save_folder_motif, "yy_kde_intersect.png"), fig_intersect, px_per_unit=1)
+
+        # ————— Fligner Killeen Test for variance comparison ————————
+        fk_test_result = FlignerKilleenTest(
+                pts.labels, 
+                (@view pts.labels[intersect_indices]))
+        fk_pvalue = round(pvalue(fk_test_result); digits=2)
 
         # ——————————————————————— process d_syms variants ————————————————————————————
         gdf_by_dsyms = groupby(gdf_by_msyms[k], build_grouping_columns(:distances; motif_size=motif_size))
@@ -186,7 +192,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
                 interaction_summary_mode_str=interaction_summary_mode_str,
                 save_folder_motif=save_folder_motif, 
                 motif_type_subdir=joinpath(motif_type, k_mode_str),
-                relaxed_median=relaxed_median_val, rna=rna)
+                relaxed_median=relaxed_median_val, rna=rna, fk_pvalue=fk_pvalue)
         end
         
         # Populate HTML dict with first variant
