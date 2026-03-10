@@ -39,16 +39,16 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
         joinpath(save_folder, "yy_kde_intersect_$shown_index.png"), 
         fig_intersect, px_per_unit=1)
 
-    # ————— NND Permutation Test (k=5) ————————
+    # ————— NND Permutation Test (k=⌈√m⌉) ————————
     subset_labels = Vector{Float64}(@view pts.labels[intersect_indices])
-    nnd_result = nnd_permutation_test_1d(subset_labels, pts.labels; k=5)
+    nnd_result = nnd_permutation_test_1d(subset_labels, pts.labels)
 
     # ——————————————————————————————————— end —————————————————————————————————————
 
     # Build metadata texts
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 use_rna=config.use_rna, relaxed_median=nothing, 
-                                nnd_pvalue=nnd_result.p_value, nnd_obs_mNND=nnd_result.obs_mNND)
+                                nnd_result=nnd_result)
     
     mode_str = mode_prefix * string(idx)
     label = "motif $(shown_index)"

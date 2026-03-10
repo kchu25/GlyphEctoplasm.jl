@@ -3,63 +3,65 @@ File I/O operations for motif data: saving logos, influence plots, positional in
 """
 
 """
-    knn_mean_dist_1d(sorted_pool, indices, k)
+    precompute_knn_dists_1d(sorted_pool, k_max)
 
-Compute the mean k-NN distance for points at `indices` within a pre-sorted pool.
-For each point, the k nearest neighbors are found by scanning left/right in the
-sorted array. O(m * k) after the pool is sorted.
+For every position in the sorted array, precompute the distances to its
+1st, 2nd, …, k_max-th nearest neighbors by scanning left/right.
+Returns a matrix `D` of size `(N, k_max)` where `D[i, j]` is the
+j-th nearest-neighbor distance for position `i`.
+
+Since the pool is sorted, neighbors are always adjacent — this is O(N * k_max).
 """
-function knn_mean_dist_1d(sorted_pool::Vector{Float64}, indices::Vector{Int}, k::Int)
+function precompute_knn_dists_1d(sorted_pool::Vector{Float64}, k_max::Int)
     N = length(sorted_pool)
-    m = length(indices)
-    total = 0.0
-    for idx in indices
-        # Collect distances to neighbors (excluding self) by scanning left and right
-        dists = Float64[]
-        li, ri = idx - 1, idx + 1
-        while length(dists) < k && (li >= 1 || ri <= N)
-            dl = li >= 1 ? abs(sorted_pool[idx] - sorted_pool[li]) : Inf
-            dr = ri <= N ? abs(sorted_pool[idx] - sorted_pool[ri]) : Inf
+    D = zeros(Float64, N, k_max)
+    for i in 1:N
+        li, ri = i - 1, i + 1
+        for j in 1:k_max
+            dl = li >= 1 ? sorted_pool[i] - sorted_pool[li] : Inf  # sorted, so no abs needed
+            dr = ri <= N ? sorted_pool[ri] - sorted_pool[i] : Inf
             if dl <= dr
-                push!(dists, dl)
+                D[i, j] = dl
                 li -= 1
             else
-                push!(dists, dr)
+                D[i, j] = dr
                 ri += 1
             end
         end
-        # The k-th NN distance (last one collected)
-        total += dists[end]
     end
-    return total / m
+    return D
 end
 
 """
-    nnd_permutation_test_1d(subpop, background; k=5, B=10_000, seed=42)
+    nnd_permutation_test_1d(subpop, background; k=nothing, B=10_000, seed=42)
 
 Test whether `subpop` points are more tightly clustered than expected under
 random labeling, using k-NN distances and a permutation test.
-Optimized for 1D: sort once, find k-NN by scanning sorted neighbors.
+Optimized for 1D: sort once, precompute all k-NN distances, then each
+permutation is O(m) table lookups.
+
+By default `k = ceil(Int, sqrt(m))` where `m = length(subpop)`.
 
 # Arguments
-- `subpop::Vector{Float64}`: The subpopulation labels
-- `background::Vector{Float64}`: The full background labels
+- `subpop`: Subpopulation labels (any real-valued vector)
+- `background`: Full background labels (any real-valued vector)
 
 # Keyword Arguments
-- `k::Int=5`: Number of nearest neighbors (can be a single value; caller
-  may invoke with multiple k values for sensitivity analysis)
+- `k::Union{Int,Nothing}=nothing`: Number of nearest neighbors.
+  If `nothing`, uses `ceil(Int, sqrt(length(subpop)))`.
 - `B::Int=10_000`: Number of permutations
 - `seed::Int=42`: Random seed for reproducibility
 
 # Returns
-NamedTuple `(obs_mNND, p_value)` where:
+NamedTuple `(k, obs_mNND, p_value)` where:
+- `k`: The k value used
 - `obs_mNND`: Observed mean k-NN distance for the subpopulation
 - `p_value`: Fraction of permutations with mean k-NN distance ≤ observed
 """
 function nnd_permutation_test_1d(
     subpop::AbstractVector{<:Real},
     background::AbstractVector{<:Real};
-    k::Int = 5,
+    k::Union{Int,Nothing} = nothing,
     B::Int = 10_000,
     seed::Int = 42
 )
@@ -70,29 +72,47 @@ function nnd_permutation_test_1d(
     N = length(pool)
     m = length(subpop)
 
-    # Map subpopulation points to their positions in the sorted array
-    # The first m entries in pool are subpop
-    rank_of = zeros(Int, N)  # rank_of[original_index] = position in sorted array
+    # Default k = ceil(sqrt(m))
+    k_use = k === nothing ? ceil(Int, sqrt(m)) : k
+    k_use = min(k_use, N - 1)
+
+    # Precompute k-NN distance table for every position: O(N * k_use)
+    D = precompute_knn_dists_1d(sorted_pool, k_use)
+
+    # Map subpopulation to sorted-array positions
+    rank_of = zeros(Int, N)
     for (rank, orig) in enumerate(sp)
         rank_of[orig] = rank
     end
     sub_ranks = sort([rank_of[i] for i in 1:m])
 
-    # Observed statistic
-    obs_mNND = knn_mean_dist_1d(sorted_pool, sub_ranks, min(k, N - 1))
+    # Helper: mean of k-th NN distance for given indices
+    function compute_mNND(indices::Vector{Int})
+        s = 0.0
+        for idx in indices
+            s += D[idx, k_use]
+        end
+        return s / m
+    end
 
-    # Null distribution via permutation
+    # Observed statistic
+    obs_mNND = compute_mNND(sub_ranks)
+
+    # Permutation null
     count_leq = 0
+    full_perm = Vector{Int}(undef, N)
+
     for _ in 1:B
-        perm_ranks = sort(Random.randperm(rng, N)[1:m])
-        null_mNND = knn_mean_dist_1d(sorted_pool, perm_ranks, min(k, N - 1))
+        Random.randperm!(rng, full_perm)
+        perm_indices = sort!(collect(@view(full_perm[1:m])))
+        null_mNND = compute_mNND(perm_indices)
         if null_mNND <= obs_mNND
             count_leq += 1
         end
     end
 
     p_value = count_leq / B
-    return (; obs_mNND, p_value)
+    return (; k=k_use, obs_mNND, p_value)
 end
 
 """
@@ -197,8 +217,7 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
                              interaction_summary_mode_str=nothing,
                              use_rna=false, relaxed_median=nothing,
                              show_meme_and_csv=true,
-                             nnd_pvalue=nothing,
-                             nnd_obs_mNND=nothing)
+                             nnd_result=nothing)
 
     @assert !isnothing(count_val) "number of counts used to construct the logo must be provided"
     if !isnothing(pfm)                             
@@ -242,33 +261,23 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
         end
     end
     
-    # Build NND observed mean distance string
-    nnd_str = if isnothing(nnd_obs_mNND)
+    # Build NND test display row
+    variance_row = if isnothing(nnd_result)
         ""
     else
-        string("mean 5-NN dist: <strong>", @sprintf("%.3f", nnd_obs_mNND), "</strong>")
-    end
+        k_used = nnd_result.k
+        # Build NND observed mean distance string
+        nnd_str = string("mean ", k_used, "-NN dist: <strong>", @sprintf("%.3f", nnd_result.obs_mNND), "</strong>")
 
-    # Build NND p-value string with significance coloring
-    pval_str = if isnothing(nnd_pvalue)
-        ""
-    elseif nnd_pvalue > NND_PVALUE_CUTOFF
-        # Not significant — render in gray
-        string("<span style=\"color: gray;\">p-value (NND): ", @sprintf("%.2g", nnd_pvalue), "</span>")
-    else
-        # Significant — p-value in bold black
-        string("p-value (NND): <strong>", @sprintf("%.2g", nnd_pvalue), "</strong>")
-    end
+        # Build NND p-value string with significance coloring
+        pv = nnd_result.p_value
+        pval_str = if pv > NND_PVALUE_CUTOFF
+            string("<span style=\"color: gray;\">p-value (NND): ", @sprintf("%.2g", pv), "</span>")
+        else
+            string("p-value (NND): <strong>", @sprintf("%.2g", pv), "</strong>")
+        end
 
-    # Combine NND distance and p-value in one row
-    variance_row = if !isempty(nnd_str) && !isempty(pval_str)
         string(nnd_str, " &nbsp;|&nbsp; ", pval_str)
-    elseif !isempty(nnd_str)
-        nnd_str
-    elseif !isempty(pval_str)
-        pval_str
-    else
-        ""
     end
 
     return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, variance_row]

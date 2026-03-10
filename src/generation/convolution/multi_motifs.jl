@@ -49,7 +49,7 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
         pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig;
         save_folder_motif, motif_type_subdir, relaxed_median, 
         interaction_summary_mode_str = nothing,
-        rna=false, nnd_pvalue=1.0, nnd_obs_mNND=0.0)
+        rna=false, nnd_result=nothing)
     
     d_str = get_d_str(d_key)
     paths = build_motif_paths(d_str, save_folder_motif, motif_type_subdir)
@@ -68,8 +68,7 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 interaction_summary_mode_str=interaction_summary_mode_str,
                                 use_rna=config.use_rna, 
-                                relaxed_median=relaxed_median, nnd_pvalue=nnd_pvalue,
-                                nnd_obs_mNND=nnd_obs_mNND)
+                                relaxed_median=relaxed_median, nnd_result=nnd_result)
     
     label = get_descriptive_str(k, d_key)
     # Add variant without populating HTML (HTML will be populated once at the end)
@@ -154,9 +153,9 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
         save(joinpath(save_folder_motif, "yy_kde_intersect.png"), fig_intersect, px_per_unit=1)
 
-        # ————— NND Permutation Test (k=5) ————————
+        # ————— NND Permutation Test (k=⌈√m⌉) ————————
         subset_labels = Vector{Float64}(@view pts.labels[intersect_indices])
-        nnd_result = nnd_permutation_test_1d(subset_labels, pts.labels; k=5)
+        nnd_result = nnd_permutation_test_1d(subset_labels, pts.labels)
 
         # ——————————————————————— process d_syms variants ————————————————————————————
         gdf_by_dsyms = groupby(gdf_by_msyms[k], build_grouping_columns(:distances; motif_size=motif_size))
@@ -191,8 +190,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
                 interaction_summary_mode_str=interaction_summary_mode_str,
                 save_folder_motif=save_folder_motif, 
                 motif_type_subdir=joinpath(motif_type, k_mode_str),
-                relaxed_median=relaxed_median_val, rna=rna, nnd_pvalue=nnd_result.p_value,
-                nnd_obs_mNND=nnd_result.obs_mNND)
+                relaxed_median=relaxed_median_val, rna=rna, nnd_result=nnd_result)
         end
         
         # Populate HTML dict with first variant
