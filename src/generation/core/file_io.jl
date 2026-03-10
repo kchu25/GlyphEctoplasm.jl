@@ -161,10 +161,10 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
         ""
     elseif fk_pvalue > FK_PVALUE_CUTOFF
         # Not significant — render in gray
-        string("<span style=\"color: gray;\">p-value (Brown-Forsythe): ", @sprintf("%.2g", fk_pvalue), "</span>")
+        string("<span style=\"color: gray;\">p-value (Fligner-Killeen): ", @sprintf("%.2g", fk_pvalue), "</span>")
     else
         # Significant — p-value in bold black
-        string("p-value (Brown-Forsythe): <strong>", @sprintf("%.2g", fk_pvalue), "</strong>")
+        string("p-value (Fligner-Killeen): <strong>", @sprintf("%.2g", fk_pvalue), "</strong>")
     end
 
     # Combine MAD log ratio and p-value in one row

@@ -40,8 +40,8 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
         joinpath(save_folder, "yy_kde_intersect_$shown_index.png"), 
         fig_intersect, px_per_unit=1)
 
-    # ————— Brown-Forsythe Test for variance comparison ————————
-    fk_test_result = BrownForsytheTest(
+    # ————— Fligner-Killeen Test for variance comparison ————————
+    fk_test_result = FlignerKilleenTest(
             pts.labels, 
             (@view pts.labels[intersect_indices]))
     fk_pvalue = round(pvalue(fk_test_result); digits=4)
