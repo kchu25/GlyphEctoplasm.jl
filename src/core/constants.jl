@@ -118,3 +118,6 @@ const NUM_minimum_pts_FOR_BOXPLOT = 25
 
 """Cutoff for Brown-Forsythe p-value significance (above this is gray/not significant)"""
 const FK_PVALUE_CUTOFF = 0.05
+
+"""Small epsilon to avoid division by zero in MAD log ratio computation"""
+const MAD_EPSILON = 1e-10

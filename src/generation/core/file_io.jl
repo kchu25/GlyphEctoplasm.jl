@@ -104,7 +104,8 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
                              interaction_summary_mode_str=nothing,
                              use_rna=false, relaxed_median=nothing,
                              show_meme_and_csv=true,
-                             fk_pvalue=nothing)
+                             fk_pvalue=nothing,
+                             mad_log_ratio=nothing)
 
     @assert !isnothing(count_val) "number of counts used to construct the logo must be provided"
     if !isnothing(pfm)                             
@@ -148,17 +149,36 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
         end
     end
     
-    fk_pvalue_str = if isnothing(fk_pvalue)
+    # Build MAD log ratio string
+    mad_str = if isnothing(mad_log_ratio)
         ""
-    elseif fk_pvalue > FK_PVALUE_CUTOFF
-        # Not significant — render entire row in gray
-        string("<span style=\"color: gray;\">p-value (variance, Brown-Forsythe test): ", @sprintf("%.2g", fk_pvalue), "</span>")
     else
-        # Significant — p-value in bold black
-        string("p-value (variance, Brown-Forsythe test): <strong>", @sprintf("%.2g", fk_pvalue), "</strong>")
+        string("log(MAD ratio): <strong>", @sprintf("%.2f", mad_log_ratio), "</strong>")
     end
 
-    return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, fk_pvalue_str]
+    # Build p-value string with significance coloring
+    pval_str = if isnothing(fk_pvalue)
+        ""
+    elseif fk_pvalue > FK_PVALUE_CUTOFF
+        # Not significant — render in gray
+        string("<span style=\"color: gray;\">p-value (Brown-Forsythe): ", @sprintf("%.2g", fk_pvalue), "</span>")
+    else
+        # Significant — p-value in bold black
+        string("p-value (Brown-Forsythe): <strong>", @sprintf("%.2g", fk_pvalue), "</strong>")
+    end
+
+    # Combine MAD log ratio and p-value in one row
+    variance_row = if !isempty(mad_str) && !isempty(pval_str)
+        string(mad_str, " &nbsp;|&nbsp; ", pval_str)
+    elseif !isempty(mad_str)
+        mad_str
+    elseif !isempty(pval_str)
+        pval_str
+    else
+        ""
+    end
+
+    return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, variance_row]
 end
 
 export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts

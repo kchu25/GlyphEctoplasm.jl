@@ -12,7 +12,8 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
         save_folder, motif_type, median_val, count_val, banzhafs,
         mode_prefix="mode_", group_id="", button_text="Singleton Motifs", 
         rna=false, is_significant::Bool=true,
-        display_index::Union{Int, Nothing}=nothing
+        display_index::Union{Int, Nothing}=nothing,
+        mad_all_labels::Float64=NaN
         )
 
     # Use display_index for labels/filenames if provided, otherwise use original k.filter_index
@@ -39,17 +40,23 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
         joinpath(save_folder, "yy_kde_intersect_$shown_index.png"), 
         fig_intersect, px_per_unit=1)
 
-    # ————— Fligner Killeen Test for variance comparison ————————
+    # ————— Brown-Forsythe Test for variance comparison ————————
     fk_test_result = BrownForsytheTest(
             pts.labels, 
             (@view pts.labels[intersect_indices]))
     fk_pvalue = round(pvalue(fk_test_result); digits=4)
 
+    # ————— MAD log ratio (tightness measure) ————————
+    subset_labels = @view pts.labels[intersect_indices]
+    mad_subset = median(abs.(subset_labels .- median(subset_labels)))
+    mad_log_ratio = log((mad_subset + MAD_EPSILON) / (mad_all_labels + MAD_EPSILON))
+
     # ——————————————————————— end ————————————————————————————
 
     # Build metadata texts
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
-                                use_rna=config.use_rna, relaxed_median=nothing, fk_pvalue=fk_pvalue)
+                                use_rna=config.use_rna, relaxed_median=nothing, 
+                                fk_pvalue=fk_pvalue, mad_log_ratio=mad_log_ratio)
     
     mode_str = mode_prefix * string(idx)
     label = "motif $(shown_index)"
@@ -118,7 +125,8 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
     # Check if significant column exists
     has_significant_col = hasproperty(contributions_df, :significant)
 
-
+    # Precompute MAD of all labels (used for log ratio in each motif)
+    mad_all_labels = Float64(median(abs.(pts.labels .- median(pts.labels))))
 
     for (i, k) in enumerate(sorted_keys)
         idx = start_idx + i - 1
@@ -133,7 +141,7 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
             mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna,
-            is_significant=is_significant, display_index=i)
+            is_significant=is_significant, display_index=i, mad_all_labels=mad_all_labels)
     end
     
     # Remap filter_index column in contributions_df to use sorted order (after processing)
