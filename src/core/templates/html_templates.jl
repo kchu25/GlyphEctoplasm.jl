@@ -500,6 +500,7 @@ html_template_singleton = mt"""<!DOCTYPE html>
                         <div id="singletonModalText4" class="singleton-info-item"></div>
                         <div id="singletonModalText5" class="singleton-info-item"></div>
                         <div id="singletonModalText6" class="singleton-info-item"></div>
+                        <div id="singletonModalText7" class="singleton-info-item"></div>
                     </div>
                 </div>
                 <div class="singleton-modal-right">

@@ -116,8 +116,5 @@ const NUM_CONFIG_WITH_DISTANCES = 16
 """Minimum number of data points required for a distance configuration to be included"""
 const NUM_minimum_pts_FOR_BOXPLOT = 25
 
-"""Cutoff for Fligner-Killeen p-value significance (above this is gray/not significant)"""
-const FK_PVALUE_CUTOFF = 0.05
-
-"""Small epsilon to avoid division by zero in MAD log ratio computation"""
-const MAD_EPSILON = 1e-10
+"""Cutoff for NND permutation test p-value significance (above this is gray/not significant)"""
+const NND_PVALUE_CUTOFF = 0.05

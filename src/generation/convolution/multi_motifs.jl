@@ -49,7 +49,7 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
         pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig;
         save_folder_motif, motif_type_subdir, relaxed_median, 
         interaction_summary_mode_str = nothing,
-        rna=false, fk_pvalue=1.0, mad_log_ratio=0.0)
+        rna=false, nnd_pvalue=1.0, nnd_obs_mNND=0.0)
     
     d_str = get_d_str(d_key)
     paths = build_motif_paths(d_str, save_folder_motif, motif_type_subdir)
@@ -68,8 +68,8 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 interaction_summary_mode_str=interaction_summary_mode_str,
                                 use_rna=config.use_rna, 
-                                relaxed_median=relaxed_median, fk_pvalue=fk_pvalue,
-                                mad_log_ratio=mad_log_ratio)
+                                relaxed_median=relaxed_median, nnd_pvalue=nnd_pvalue,
+                                nnd_obs_mNND=nnd_obs_mNND)
     
     label = get_descriptive_str(k, d_key)
     # Add variant without populating HTML (HTML will be populated once at the end)
@@ -127,9 +127,6 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
     # Build mode prefix with group_id
     mode_prefix = isempty(group_id) ? "mode_" : "mode_$(group_id)_"
 
-    # Precompute MAD of all labels (used for log ratio in each motif)
-    mad_all_labels = Float64(median(abs.(pts.labels .- median(pts.labels))))
-
     processed_count = 0
     @showprogress for (i, k) in enumerate(sorted_keys)
 
@@ -157,16 +154,9 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
         save(joinpath(save_folder_motif, "yy_kde_intersect.png"), fig_intersect, px_per_unit=1)
 
-        # ————— Fligner-Killeen Test for variance comparison ————————
-        fk_test_result = FlignerKilleenTest(
-                pts.labels, 
-                (@view pts.labels[intersect_indices]))
-        fk_pvalue = round(pvalue(fk_test_result); digits=4)
-
-        # ————— MAD log ratio (tightness measure) ————————
-        subset_labels = @view pts.labels[intersect_indices]
-        mad_subset = median(abs.(subset_labels .- median(subset_labels)))
-        mad_log_ratio = log((mad_subset + MAD_EPSILON) / (mad_all_labels + MAD_EPSILON))
+        # ————— NND Permutation Test (k=5) ————————
+        subset_labels = Vector{Float64}(@view pts.labels[intersect_indices])
+        nnd_result = nnd_permutation_test_1d(subset_labels, pts.labels; k=5)
 
         # ——————————————————————— process d_syms variants ————————————————————————————
         gdf_by_dsyms = groupby(gdf_by_msyms[k], build_grouping_columns(:distances; motif_size=motif_size))
@@ -201,8 +191,8 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
                 interaction_summary_mode_str=interaction_summary_mode_str,
                 save_folder_motif=save_folder_motif, 
                 motif_type_subdir=joinpath(motif_type, k_mode_str),
-                relaxed_median=relaxed_median_val, rna=rna, fk_pvalue=fk_pvalue,
-                mad_log_ratio=mad_log_ratio)
+                relaxed_median=relaxed_median_val, rna=rna, nnd_pvalue=nnd_result.p_value,
+                nnd_obs_mNND=nnd_result.obs_mNND)
         end
         
         # Populate HTML dict with first variant
