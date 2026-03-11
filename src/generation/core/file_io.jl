@@ -33,22 +33,19 @@ function precompute_knn_dists_1d(sorted_pool::Vector{Float64}, k_max::Int)
 end
 
 """
-    nnd_permutation_test_1d(subpop, background; k=nothing, B=10_000, seed=42)
+    nnd_permutation_test_1d(subpop, background; k=5, B=10_000, seed=42)
 
 Test whether `subpop` points are more tightly clustered than expected under
 random labeling, using k-NN distances and a permutation test.
 Optimized for 1D: sort once, precompute all k-NN distances, then each
 permutation is O(m) table lookups.
 
-By default `k = ceil(Int, sqrt(m))` where `m = length(subpop)`.
-
 # Arguments
 - `subpop`: Subpopulation labels (any real-valued vector)
 - `background`: Full background labels (any real-valued vector)
 
 # Keyword Arguments
-- `k::Union{Int,Nothing}=nothing`: Number of nearest neighbors.
-  If `nothing`, uses `ceil(Int, sqrt(length(subpop)))`.
+- `k::Int=5`: Number of nearest neighbors.
 - `B::Int=10_000`: Number of permutations
 - `seed::Int=42`: Random seed for reproducibility
 
@@ -61,7 +58,7 @@ NamedTuple `(k, obs_mNND, p_value)` where:
 function nnd_permutation_test_1d(
     subpop::AbstractVector{<:Real},
     background::AbstractVector{<:Real};
-    k::Union{Int,Nothing} = nothing,
+    k::Int = 5,
     B::Int = 10_000,
     seed::Int = 42
 )
@@ -72,9 +69,7 @@ function nnd_permutation_test_1d(
     N = length(pool)
     m = length(subpop)
 
-    # Default k = ceil(sqrt(m))
-    k_use = k === nothing ? ceil(Int, sqrt(m)) : k
-    k_use = min(k_use, N - 1)
+    k_use = min(k, N - 1)
 
     # Precompute k-NN distance table for every position: O(N * k_use)
     D = precompute_knn_dists_1d(sorted_pool, k_use)

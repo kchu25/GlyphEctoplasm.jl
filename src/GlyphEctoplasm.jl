@@ -56,6 +56,7 @@ using Printf
 using Colors
 using KernelDensity: kde
 using Random
+using MultipleTesting: adjust, PValues, BenjaminiHochberg
 
 # =============================================================================
 # BanzhafPlots Submodule

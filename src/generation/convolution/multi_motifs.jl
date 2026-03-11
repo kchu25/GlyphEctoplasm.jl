@@ -153,7 +153,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         fig_intersect = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
         save(joinpath(save_folder_motif, "yy_kde_intersect.png"), fig_intersect, px_per_unit=1)
 
-        # ————— NND Permutation Test (k=⌈√m⌉) ————————
+        # ————— NND Permutation Test (k=5) ————————
         subset_labels = Vector{Float64}(@view pts.labels[intersect_indices])
         nnd_result = nnd_permutation_test_1d(subset_labels, pts.labels)
 
