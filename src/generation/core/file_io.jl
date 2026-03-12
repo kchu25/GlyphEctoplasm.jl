@@ -111,6 +111,97 @@ function nnd_permutation_test_1d(
 end
 
 """
+    nnd_sensitivity_batch_1d(subpop, background; ks, B=10_000, seed=42)
+
+Batched NND permutation test across multiple k values for a single motif.
+Precomputes the distance table once up to `k_max = max(ks)` and evaluates
+all k values in a single pass over the B permutations — ~length(ks)× faster
+than calling `nnd_permutation_test_1d` separately for each k.
+
+# Arguments
+- `subpop`: Subpopulation labels (any real-valued vector)
+- `background`: Full background labels (any real-valued vector)
+
+# Keyword Arguments
+- `ks::Vector{Int}`: k values to evaluate
+- `B::Int=10_000`: Number of permutations
+- `seed::Int=42`: Random seed for reproducibility
+
+# Returns
+Vector of NamedTuples `(k, obs_mNND, p_value)`, one per entry in `ks`.
+"""
+function nnd_sensitivity_batch_1d(
+    subpop::AbstractVector{<:Real},
+    background::AbstractVector{<:Real};
+    ks::Vector{Int},
+    B::Int = 10_000,
+    seed::Int = 42
+)
+    rng = Random.MersenneTwister(seed)
+    pool = Vector{Float64}(vcat(subpop, background))
+    sp = sortperm(pool)
+    sorted_pool = pool[sp]
+    N = length(pool)
+    m = length(subpop)
+
+    # Clamp all k values and find the max for a single precomputation
+    ks_use = [min(kv, N - 1) for kv in ks]
+    k_max = maximum(ks_use)
+
+    # Precompute k-NN distance table once up to k_max: O(N * k_max)
+    D = precompute_knn_dists_1d(sorted_pool, k_max)
+
+    # Map subpopulation to sorted-array positions
+    rank_of = zeros(Int, N)
+    for (rank, orig) in enumerate(sp)
+        rank_of[orig] = rank
+    end
+    sub_ranks = sort([rank_of[i] for i in 1:m])
+
+    nk = length(ks)
+    inv_m = 1.0 / m
+
+    # Compute observed mNND for each k
+    obs_mNNDs = Vector{Float64}(undef, nk)
+    for (j, ku) in enumerate(ks_use)
+        s = 0.0
+        @inbounds for idx in sub_ranks
+            s += D[idx, ku]
+        end
+        obs_mNNDs[j] = s * inv_m
+    end
+
+    # Permutation null — shared permutations across all k values
+    counts_leq = zeros(Int, nk)
+    full_perm = Vector{Int}(undef, N)
+    perm_buf = Vector{Int}(undef, m)
+
+    for _ in 1:B
+        Random.randperm!(rng, full_perm)
+        # Extract and sort the first m indices
+        @inbounds for i in 1:m
+            perm_buf[i] = full_perm[i]
+        end
+        sort!(perm_buf)
+
+        # Evaluate all k values for this single permutation
+        for (j, ku) in enumerate(ks_use)
+            s = 0.0
+            @inbounds for i in 1:m
+                s += D[perm_buf[i], ku]
+            end
+            null_mNND = s * inv_m
+            if null_mNND <= obs_mNNDs[j]
+                counts_leq[j] += 1
+            end
+        end
+    end
+
+    inv_B = 1.0 / B
+    return [(; k=ks_use[j], obs_mNND=obs_mNNDs[j], p_value=counts_leq[j] * inv_B) for j in 1:nk]
+end
+
+"""
     build_motif_paths(name_base::AbstractString, save_folder::AbstractString, motif_type::AbstractString)
 
 Build absolute and relative file paths for motif output files (PNG logo, CSV positions, MEME format).
@@ -278,4 +369,4 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
     return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, variance_row]
 end
 
-export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts, nnd_permutation_test_1d
+export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts, nnd_permutation_test_1d, nnd_sensitivity_batch_1d

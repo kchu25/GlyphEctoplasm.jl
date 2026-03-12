@@ -81,6 +81,10 @@ function plot_motifs_conv_case(data, m, motif_sizes,
             contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
             save_path=save_path, page_title=ds_name
         )
+        run_nnd_sensitivity_analysis_null(
+            contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
+            save_path=save_path, page_title=ds_name
+        )
     end
 
     render_and_save_outputs!(json_motifs, html_dict, 1; 

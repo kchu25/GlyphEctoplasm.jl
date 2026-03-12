@@ -114,7 +114,7 @@ export process_single_mut_region!, process_multi_mut_regions!
 export render_and_save_outputs!, render_generalization_page!
 
 # Sensitivity analysis
-export run_nnd_sensitivity_analysis, SENSITIVITY_KS
+export run_nnd_sensitivity_analysis, run_nnd_sensitivity_analysis_null, SENSITIVITY_KS
 
 # Template constants
 export html_template_unified, html_template_generalization, script_template, template_css
