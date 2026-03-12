@@ -87,8 +87,14 @@ include(joinpath("generation", "generation.jl"))
 # Rendering 
 # =============================================================================
 include("generalization.jl")
+include("run_nnd_sensitivity.jl")
 include("run_thru_conv.jl")
 include("run_thru_mut.jl")
+
+# =============================================================================
+# Constants
+# =============================================================================
+const SENSITIVITY_KS = [1, 3, 5, 7, 10, 15, 20]
 
 # =============================================================================
 # Exports
@@ -106,6 +112,9 @@ export process_single_mut_region!, process_multi_mut_regions!
 
 # Rendering functions
 export render_and_save_outputs!, render_generalization_page!
+
+# Sensitivity analysis
+export run_nnd_sensitivity_analysis, SENSITIVITY_KS
 
 # Template constants
 export html_template_unified, html_template_generalization, script_template, template_css
