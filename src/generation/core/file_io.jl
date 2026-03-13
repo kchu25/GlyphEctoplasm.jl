@@ -35,7 +35,7 @@ function mean_knn_within_group_1d(sorted_vals::AbstractVector{Float64}, k::Int)
 end
 
 """
-    nnd_permutation_test_1d(subpop_positions, background; k=20, B=1_000, seed=42)
+    nnd_permutation_test_1d(subpop_positions, background; k=30, B=1_000, seed=42)
 
 Test whether the points at `subpop_positions` within `background` are more
 tightly clustered **among themselves** than a random draw of the same size,
@@ -55,7 +55,7 @@ p-value = fraction of null draws whose within-group mNND ≤ observed.
 - `background`: Full background labels (real-valued vector, length N).
 
 # Keyword Arguments
-- `k::Int=20`: Number of nearest neighbors.
+- `k::Int=30`: Number of nearest neighbors.
 - `B::Int=1_000`: Number of permutations.
 - `seed::Int=42`: Random seed for reproducibility.
 
@@ -65,7 +65,7 @@ NamedTuple `(k, obs_mNND, p_value)`.
 function nnd_permutation_test_1d(
     subpop_positions::AbstractVector{<:Integer},
     background::AbstractVector{<:Real};
-    k::Int = 20,
+    k::Int = 30,
     B::Int = 1_000,
     seed::Int = 42
 )
