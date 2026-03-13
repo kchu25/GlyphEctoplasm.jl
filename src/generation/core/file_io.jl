@@ -13,29 +13,29 @@ Since the group is sorted, neighbors are always adjacent — this is O(m * k).
 """
 function mean_knn_within_group_1d(sorted_vals::AbstractVector{Float64}, k::Int)
     m = length(sorted_vals)
-    k_use = min(k, m - 1)
-    s = 0.0
+    k_clamped = min(k, m - 1)
+    sum_knn_dists = 0.0
     for i in 1:m
-        li, ri = i - 1, i + 1
-        d_k = 0.0
-        for j in 1:k_use
-            dl = li >= 1 ? sorted_vals[i] - sorted_vals[li] : Inf
-            dr = ri <= m ? sorted_vals[ri] - sorted_vals[i] : Inf
-            if dl <= dr
-                d_k = dl
-                li -= 1
+        left_idx, right_idx = i - 1, i + 1
+        knn_dist = 0.0
+        for _ in 1:k_clamped
+            dist_left = left_idx >= 1 ? sorted_vals[i] - sorted_vals[left_idx] : Inf
+            dist_right = right_idx <= m ? sorted_vals[right_idx] - sorted_vals[i] : Inf
+            if dist_left <= dist_right
+                knn_dist = dist_left
+                left_idx -= 1
             else
-                d_k = dr
-                ri += 1
+                knn_dist = dist_right
+                right_idx += 1
             end
         end
-        s += d_k
+        sum_knn_dists += knn_dist
     end
-    return s / m
+    return sum_knn_dists / m
 end
 
 """
-    nnd_permutation_test_1d(subpop_positions, background; k=5, B=1_000, seed=42)
+    nnd_permutation_test_1d(subpop_positions, background; k=10, B=1_000, seed=42)
 
 Test whether the points at `subpop_positions` within `background` are more
 tightly clustered **among themselves** than a random draw of the same size,
@@ -55,7 +55,7 @@ p-value = fraction of null draws whose within-group mNND ≤ observed.
 - `background`: Full background labels (real-valued vector, length N).
 
 # Keyword Arguments
-- `k::Int=5`: Number of nearest neighbors.
+- `k::Int=10`: Number of nearest neighbors.
 - `B::Int=1_000`: Number of permutations.
 - `seed::Int=42`: Random seed for reproducibility.
 
@@ -65,39 +65,39 @@ NamedTuple `(k, obs_mNND, p_value)`.
 function nnd_permutation_test_1d(
     subpop_positions::AbstractVector{<:Integer},
     background::AbstractVector{<:Real};
-    k::Int = 5,
+    k::Int = 10,
     B::Int = 1_000,
     seed::Int = 42
 )
     rng = Random.MersenneTwister(seed)
-    bg = Vector{Float64}(background)
-    N = length(bg)
-    m = length(subpop_positions)
-    k_use = min(k, m - 1)   # can only have m-1 neighbors within a group of m
+    bg_vals = Vector{Float64}(background)
+    n_bg = length(bg_vals)
+    n_subpop = length(subpop_positions)
+    k_clamped = min(k, n_subpop - 1)   # can only have m-1 neighbors within a group of m
 
     # Observed: sort subpop values, compute within-group mNND
-    sub_vals = sort!([bg[i] for i in subpop_positions])
-    obs_mNND = mean_knn_within_group_1d(sub_vals, k_use)
+    subpop_vals = sort!([bg_vals[i] for i in subpop_positions])
+    obs_mNND = mean_knn_within_group_1d(subpop_vals, k_clamped)
 
     # Null: draw m random values from background, compute within-group mNND
-    count_leq = 0
-    full_perm = Vector{Int}(undef, N)
-    null_vals = Vector{Float64}(undef, m)
+    count_significant = 0
+    perm_indices = Vector{Int}(undef, n_bg)
+    null_vals = Vector{Float64}(undef, n_subpop)
 
     for _ in 1:B
-        Random.randperm!(rng, full_perm)
-        @inbounds for i in 1:m
-            null_vals[i] = bg[full_perm[i]]
+        Random.randperm!(rng, perm_indices)
+        @inbounds for i in 1:n_subpop
+            null_vals[i] = bg_vals[perm_indices[i]]
         end
         sort!(null_vals)
-        null_mNND = mean_knn_within_group_1d(null_vals, k_use)
+        null_mNND = mean_knn_within_group_1d(null_vals, k_clamped)
         if null_mNND <= obs_mNND
-            count_leq += 1
+            count_significant += 1
         end
     end
 
-    p_value = count_leq / B
-    return (; k=k_use, obs_mNND, p_value)
+    p_value = count_significant / B
+    return (; k=k_clamped, obs_mNND, p_value)
 end
 
 """
@@ -131,41 +131,41 @@ function nnd_sensitivity_batch_1d(
     seed::Int = 42
 )
     rng = Random.MersenneTwister(seed)
-    bg = Vector{Float64}(background)
-    N = length(bg)
-    m = length(subpop_positions)
+    bg_vals = Vector{Float64}(background)
+    n_bg = length(bg_vals)
+    n_subpop = length(subpop_positions)
 
     # Clamp k values to m-1 (max neighbors within a group of m)
-    ks_use = [min(kv, m - 1) for kv in ks]
-    nk = length(ks)
+    ks_clamped = [min(kv, n_subpop - 1) for kv in ks]
+    n_ks = length(ks)
 
     # Observed: sort subpop values, compute within-group mNND for each k
-    sub_vals = sort!([bg[i] for i in subpop_positions])
-    obs_mNNDs = [mean_knn_within_group_1d(sub_vals, ku) for ku in ks_use]
+    subpop_vals = sort!([bg_vals[i] for i in subpop_positions])
+    obs_mNNDs = [mean_knn_within_group_1d(subpop_vals, ku) for ku in ks_clamped]
 
     # Null: draw m random values, sort, compute within-group mNND for all k
-    counts_leq = zeros(Int, nk)
-    full_perm = Vector{Int}(undef, N)
-    null_vals = Vector{Float64}(undef, m)
+    counts_significant = zeros(Int, n_ks)
+    perm_indices = Vector{Int}(undef, n_bg)
+    null_vals = Vector{Float64}(undef, n_subpop)
 
     for _ in 1:B
-        Random.randperm!(rng, full_perm)
-        @inbounds for i in 1:m
-            null_vals[i] = bg[full_perm[i]]
+        Random.randperm!(rng, perm_indices)
+        @inbounds for i in 1:n_subpop
+            null_vals[i] = bg_vals[perm_indices[i]]
         end
         sort!(null_vals)
 
         # Evaluate all k values for this draw
-        for (j, ku) in enumerate(ks_use)
+        for (j, ku) in enumerate(ks_clamped)
             null_mNND = mean_knn_within_group_1d(null_vals, ku)
             if null_mNND <= obs_mNNDs[j]
-                counts_leq[j] += 1
+                counts_significant[j] += 1
             end
         end
     end
 
     inv_B = 1.0 / B
-    return [(; k=ks_use[j], obs_mNND=obs_mNNDs[j], p_value=counts_leq[j] * inv_B) for j in 1:nk]
+    return [(; k=ks_clamped[j], obs_mNND=obs_mNNDs[j], p_value=counts_significant[j] * inv_B) for j in 1:n_ks]
 end
 
 """
