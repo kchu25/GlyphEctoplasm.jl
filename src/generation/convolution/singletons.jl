@@ -40,8 +40,8 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
         fig_intersect, px_per_unit=1)
 
     # ————— NND Permutation Test (k=5) ————————
-    subset_labels = Vector{Float64}(@view pts.labels[intersect_indices])
-    nnd_result = nnd_permutation_test_1d(subset_labels, pts.labels)
+    subpop_pos = findall(is_in_intersect)
+    nnd_result = nnd_permutation_test_1d(subpop_pos, pts.labels)
 
     # ——————————————————————————————————— end —————————————————————————————————————
 

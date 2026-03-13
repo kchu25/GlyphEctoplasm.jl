@@ -3,104 +3,94 @@ File I/O operations for motif data: saving logos, influence plots, positional in
 """
 
 """
-    precompute_knn_dists_1d(sorted_pool, k_max)
+    mean_knn_within_group_1d(sorted_vals, k)
 
-For every position in the sorted array, precompute the distances to its
-1st, 2nd, …, k_max-th nearest neighbors by scanning left/right.
-Returns a matrix `D` of size `(N, k_max)` where `D[i, j]` is the
-j-th nearest-neighbor distance for position `i`.
+Compute the mean k-NN distance **within** a sorted group of values.
+For each point, scan left/right among its group-mates to find the k
+nearest neighbors, then average the k-th NN distance across all points.
 
-Since the pool is sorted, neighbors are always adjacent — this is O(N * k_max).
+Since the group is sorted, neighbors are always adjacent — this is O(m * k).
 """
-function precompute_knn_dists_1d(sorted_pool::Vector{Float64}, k_max::Int)
-    N = length(sorted_pool)
-    D = zeros(Float64, N, k_max)
-    for i in 1:N
+function mean_knn_within_group_1d(sorted_vals::AbstractVector{Float64}, k::Int)
+    m = length(sorted_vals)
+    k_use = min(k, m - 1)
+    s = 0.0
+    for i in 1:m
         li, ri = i - 1, i + 1
-        for j in 1:k_max
-            dl = li >= 1 ? sorted_pool[i] - sorted_pool[li] : Inf  # sorted, so no abs needed
-            dr = ri <= N ? sorted_pool[ri] - sorted_pool[i] : Inf
+        d_k = 0.0
+        for j in 1:k_use
+            dl = li >= 1 ? sorted_vals[i] - sorted_vals[li] : Inf
+            dr = ri <= m ? sorted_vals[ri] - sorted_vals[i] : Inf
             if dl <= dr
-                D[i, j] = dl
+                d_k = dl
                 li -= 1
             else
-                D[i, j] = dr
+                d_k = dr
                 ri += 1
             end
         end
+        s += d_k
     end
-    return D
+    return s / m
 end
 
 """
-    nnd_permutation_test_1d(subpop, background; k=5, B=10_000, seed=42)
+    nnd_permutation_test_1d(subpop_positions, background; k=5, B=1_000, seed=42)
 
-Test whether `subpop` points are more tightly clustered than expected under
-random labeling, using k-NN distances and a permutation test.
-Optimized for 1D: sort once, precompute all k-NN distances, then each
-permutation is O(m) table lookups.
+Test whether the points at `subpop_positions` within `background` are more
+tightly clustered **among themselves** than a random draw of the same size,
+using within-group k-NN distances and a permutation test.
+
+**Observed statistic**: sort the m subpop values → compute mean k-NN
+distance within that sorted group.
+
+**Null distribution**: draw m values at random from background → sort →
+compute the same within-group mean k-NN distance.  Repeat B times.
+
+p-value = fraction of null draws whose within-group mNND ≤ observed.
 
 # Arguments
-- `subpop`: Subpopulation labels (any real-valued vector)
-- `background`: Full background labels (any real-valued vector)
+- `subpop_positions`: Integer vector of **positional indices** (1-based)
+  into `background` identifying the subpopulation members.
+- `background`: Full background labels (real-valued vector, length N).
 
 # Keyword Arguments
 - `k::Int=5`: Number of nearest neighbors.
-- `B::Int=10_000`: Number of permutations
-- `seed::Int=42`: Random seed for reproducibility
+- `B::Int=1_000`: Number of permutations.
+- `seed::Int=42`: Random seed for reproducibility.
 
 # Returns
-NamedTuple `(k, obs_mNND, p_value)` where:
-- `k`: The k value used
-- `obs_mNND`: Observed mean k-NN distance for the subpopulation
-- `p_value`: Fraction of permutations with mean k-NN distance ≤ observed
+NamedTuple `(k, obs_mNND, p_value)`.
 """
 function nnd_permutation_test_1d(
-    subpop::AbstractVector{<:Real},
+    subpop_positions::AbstractVector{<:Integer},
     background::AbstractVector{<:Real};
     k::Int = 5,
-    B::Int = 10_000,
+    B::Int = 1_000,
     seed::Int = 42
 )
     rng = Random.MersenneTwister(seed)
-    pool = Vector{Float64}(vcat(subpop, background))
-    sp = sortperm(pool)
-    sorted_pool = pool[sp]
-    N = length(pool)
-    m = length(subpop)
+    bg = Vector{Float64}(background)
+    N = length(bg)
+    m = length(subpop_positions)
+    k_use = min(k, m - 1)   # can only have m-1 neighbors within a group of m
 
-    k_use = min(k, N - 1)
+    # Observed: sort subpop values, compute within-group mNND
+    sub_vals = sort!([bg[i] for i in subpop_positions])
+    obs_mNND = mean_knn_within_group_1d(sub_vals, k_use)
 
-    # Precompute k-NN distance table for every position: O(N * k_use)
-    D = precompute_knn_dists_1d(sorted_pool, k_use)
-
-    # Map subpopulation to sorted-array positions
-    rank_of = zeros(Int, N)
-    for (rank, orig) in enumerate(sp)
-        rank_of[orig] = rank
-    end
-    sub_ranks = sort([rank_of[i] for i in 1:m])
-
-    # Helper: mean of k-th NN distance for given indices
-    function compute_mNND(indices::Vector{Int})
-        s = 0.0
-        for idx in indices
-            s += D[idx, k_use]
-        end
-        return s / m
-    end
-
-    # Observed statistic
-    obs_mNND = compute_mNND(sub_ranks)
-
-    # Permutation null
+    # Null: draw m random values from background, compute within-group mNND
     count_leq = 0
     full_perm = Vector{Int}(undef, N)
+    null_vals = Vector{Float64}(undef, m)
 
     for _ in 1:B
         Random.randperm!(rng, full_perm)
-        perm_indices = sort!(collect(@view(full_perm[1:m])))
-        null_mNND = compute_mNND(perm_indices)
+        @inbounds for i in 1:m
+            null_vals[i] = bg[full_perm[i]]
+        end
+        sort!(null_vals)
+        null_mNND = mean_knn_within_group_1d(null_vals, k_use)
         if null_mNND <= obs_mNND
             count_leq += 1
         end
@@ -111,86 +101,63 @@ function nnd_permutation_test_1d(
 end
 
 """
-    nnd_sensitivity_batch_1d(subpop, background; ks, B=10_000, seed=42)
+    nnd_sensitivity_batch_1d(subpop_positions, background; ks, B=1_000, seed=42)
 
 Batched NND permutation test across multiple k values for a single motif.
-Precomputes the distance table once up to `k_max = max(ks)` and evaluates
-all k values in a single pass over the B permutations — ~length(ks)× faster
-than calling `nnd_permutation_test_1d` separately for each k.
+Each k is tested using **within-group** k-NN distances — the subpopulation's
+mean k-NN distance is computed among its own m members, then compared to
+null draws of m random background values.
+
+Shares the same random draws across all k values for efficiency.
 
 # Arguments
-- `subpop`: Subpopulation labels (any real-valued vector)
-- `background`: Full background labels (any real-valued vector)
+- `subpop_positions`: Integer vector of **positional indices** (1-based)
+  into `background` identifying the subpopulation members.
+- `background`: Full background labels (real-valued vector, length N).
 
 # Keyword Arguments
-- `ks::Vector{Int}`: k values to evaluate
-- `B::Int=10_000`: Number of permutations
-- `seed::Int=42`: Random seed for reproducibility
+- `ks::Vector{Int}`: k values to evaluate.
+- `B::Int=1_000`: Number of permutations.
+- `seed::Int=42`: Random seed for reproducibility.
 
 # Returns
 Vector of NamedTuples `(k, obs_mNND, p_value)`, one per entry in `ks`.
 """
 function nnd_sensitivity_batch_1d(
-    subpop::AbstractVector{<:Real},
+    subpop_positions::AbstractVector{<:Integer},
     background::AbstractVector{<:Real};
     ks::Vector{Int},
-    B::Int = 10_000,
+    B::Int = 1_000,
     seed::Int = 42
 )
     rng = Random.MersenneTwister(seed)
-    pool = Vector{Float64}(vcat(subpop, background))
-    sp = sortperm(pool)
-    sorted_pool = pool[sp]
-    N = length(pool)
-    m = length(subpop)
+    bg = Vector{Float64}(background)
+    N = length(bg)
+    m = length(subpop_positions)
 
-    # Clamp all k values and find the max for a single precomputation
-    ks_use = [min(kv, N - 1) for kv in ks]
-    k_max = maximum(ks_use)
-
-    # Precompute k-NN distance table once up to k_max: O(N * k_max)
-    D = precompute_knn_dists_1d(sorted_pool, k_max)
-
-    # Map subpopulation to sorted-array positions
-    rank_of = zeros(Int, N)
-    for (rank, orig) in enumerate(sp)
-        rank_of[orig] = rank
-    end
-    sub_ranks = sort([rank_of[i] for i in 1:m])
-
+    # Clamp k values to m-1 (max neighbors within a group of m)
+    ks_use = [min(kv, m - 1) for kv in ks]
     nk = length(ks)
-    inv_m = 1.0 / m
 
-    # Compute observed mNND for each k
-    obs_mNNDs = Vector{Float64}(undef, nk)
-    for (j, ku) in enumerate(ks_use)
-        s = 0.0
-        @inbounds for idx in sub_ranks
-            s += D[idx, ku]
-        end
-        obs_mNNDs[j] = s * inv_m
-    end
+    # Observed: sort subpop values, compute within-group mNND for each k
+    sub_vals = sort!([bg[i] for i in subpop_positions])
+    obs_mNNDs = [mean_knn_within_group_1d(sub_vals, ku) for ku in ks_use]
 
-    # Permutation null — shared permutations across all k values
+    # Null: draw m random values, sort, compute within-group mNND for all k
     counts_leq = zeros(Int, nk)
     full_perm = Vector{Int}(undef, N)
-    perm_buf = Vector{Int}(undef, m)
+    null_vals = Vector{Float64}(undef, m)
 
     for _ in 1:B
         Random.randperm!(rng, full_perm)
-        # Extract and sort the first m indices
         @inbounds for i in 1:m
-            perm_buf[i] = full_perm[i]
+            null_vals[i] = bg[full_perm[i]]
         end
-        sort!(perm_buf)
+        sort!(null_vals)
 
-        # Evaluate all k values for this single permutation
+        # Evaluate all k values for this draw
         for (j, ku) in enumerate(ks_use)
-            s = 0.0
-            @inbounds for i in 1:m
-                s += D[perm_buf[i], ku]
-            end
-            null_mNND = s * inv_m
+            null_mNND = mean_knn_within_group_1d(null_vals, ku)
             if null_mNND <= obs_mNNDs[j]
                 counts_leq[j] += 1
             end

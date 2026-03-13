@@ -26,7 +26,21 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         dataset_name::Union{String,Nothing}=nothing
         );
 
-    # motif rendering
+    # ── Sensitivity-analysis-only mode (skip all rendering) ────
+    if sensitivity_analysis
+        ds_name = dataset_name === nothing ? page_title : dataset_name
+        run_nnd_sensitivity_analysis(
+            contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
+            save_path=save_path, page_title=ds_name
+        )
+        run_nnd_sensitivity_analysis_null(
+            contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
+            save_path=save_path, page_title=ds_name
+        )
+        return nothing
+    end
+
+    # ── Full motif rendering pipeline ───────────────────────────
     xlim = obtain_xlim(contributions_df_filtered_singletons, dfs)
 
     config = ConvMotifConfig(data; 
@@ -73,19 +87,6 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         nav_page_count=nav_page_count,
         image_filename="generalization.png"
     )
-
-    # ── Optional NND sensitivity analysis ───────────────────────
-    if sensitivity_analysis
-        ds_name = dataset_name === nothing ? page_title : dataset_name
-        run_nnd_sensitivity_analysis(
-            contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
-            save_path=save_path, page_title=ds_name
-        )
-        run_nnd_sensitivity_analysis_null(
-            contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
-            save_path=save_path, page_title=ds_name
-        )
-    end
 
     render_and_save_outputs!(json_motifs, html_dict, 1; 
         html_template=html_template_unified, 
