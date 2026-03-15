@@ -120,6 +120,11 @@ avoid clutter — these mark the densest regions where motif-containing points c
   
 - `motif_label::String = "Contain motif"`: Legend label for the motif-containing group.
 
+- `alpha_power::Float64 = 1.01`: Controls density-based opacity scaling for motif points.
+  Points are binned on a 50×50 2D grid; each point's alpha is proportional to its bin count
+  raised to `alpha_power`. Values > 1 create stronger contrast (sparse → dim, dense → bright).
+  Set to 1.0 for uniform alpha (no density scaling).
+
 ## Returns
 - `fig::Figure`: A Makie Figure (800×800 px) with axes configured for publication: no top/right 
   spines, large tick labels (28pt), large axis labels (32pt), clean white background.
@@ -133,7 +138,7 @@ fig = plot_labels_vs_procprod(pts, is_motif;
 save("motif_enrichment.png", fig)
 ```
 """
-function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r2=false, motif_label="Contain motif")
+function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r2=false, motif_label="Contain motif", alpha_power=1.01)
     fig = Figure(size=(800, 800))
     ax = Axis(fig[1, 1], 
         xlabel="Predicted values", 
@@ -196,12 +201,50 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r
     end
 
     # ═══════════════════════════════════════════════════════════════════════
-    # Layer 3 (front): Motif-containing scatter with uniform transparency
+    # Layer 3 (front): Motif-containing scatter with density-scaled alpha
     # ═══════════════════════════════════════════════════════════════════════
     if n_fg > 0
-        scatter!(ax, fg_x, fg_y,
-            color=RGBA(0.98, 0.40, 0.10, 0.90), markersize=6, marker=:circle, 
-            strokewidth=0.7, strokecolor=RGBA(0.1, 0.1, 0.1, 0.6))
+        if alpha_power != 1.0 && n_fg > 1
+            # Density-based per-point alpha using 2D grid binning (fast)
+            nbins_density = 50
+            xlo, xhi = extrema(fg_x); ylo, yhi = extrema(fg_y)
+            dx = (xhi - xlo) / nbins_density; dx = dx == 0 ? 1.0 : dx
+            dy = (yhi - ylo) / nbins_density; dy = dy == 0 ? 1.0 : dy
+
+            bin_counts = Dict{Tuple{Int,Int}, Int}()
+            bin_idx = Vector{Tuple{Int,Int}}(undef, n_fg)
+            for i in 1:n_fg
+                bx = clamp(floor(Int, (fg_x[i] - xlo) / dx) + 1, 1, nbins_density)
+                by = clamp(floor(Int, (fg_y[i] - ylo) / dy) + 1, 1, nbins_density)
+                bin_idx[i] = (bx, by)
+                bin_counts[(bx, by)] = get(bin_counts, (bx, by), 0) + 1
+            end
+
+            raw_density = Float64[bin_counts[bin_idx[i]] for i in 1:n_fg]
+            max_d = maximum(raw_density)
+            normalized = raw_density ./ max_d
+
+            # Apply power scaling: higher alpha_power → stronger contrast
+            scaled = normalized .^ alpha_power
+            point_alphas = 0.05 .+ 0.85 .* scaled
+
+            # Sparse → warm orange, Dense → dark crimson
+            colors = [begin
+                t = clamp(normalized[i], 0.0, 1.0)
+                r = 0.98 - 0.40 * t
+                g = 0.40 - 0.30 * t
+                b = 0.10 - 0.06 * t
+                RGBA(r, g, b, clamp(point_alphas[i], 0.02, 1.0))
+            end for i in 1:n_fg]
+
+            scatter!(ax, fg_x, fg_y,
+                color=colors, markersize=6, marker=:circle,
+                strokewidth=0.7, strokecolor=RGBA(0.1, 0.1, 0.1, 0.6))
+        else
+            scatter!(ax, fg_x, fg_y,
+                color=RGBA(0.98, 0.40, 0.10, 0.90), markersize=6, marker=:circle, 
+                strokewidth=0.7, strokecolor=RGBA(0.1, 0.1, 0.1, 0.6))
+        end
         
         # Legend entry with matching orange color
         scatter!(ax, [NaN], [NaN],
