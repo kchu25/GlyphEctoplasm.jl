@@ -75,6 +75,11 @@ Populates JSON and HTML dicts sorted by median banzhaf contribution (descending)
 - `button_text::String = "Singleton Motifs"`: Custom text for the toggle button
 - `start_idx::Int = 1`: Starting index for mode numbering
 - `pareto_rank = nothing`: Optional Pareto rank filter
+- `mark_insignificant::Bool = false`: If false (default), the rendered cards carry no
+  significance annotation — the `:significant` column (if any) is ignored at render time
+  and no "insignificant" tag is imprinted, so the output conveys no extra information
+  about significance. If true, the `:significant` column of `contributions_df` (when
+  present) drives whether the "insignificant" tag is shown.
 
 # Returns
 - `(next_idx, sorted_mapping)`: Tuple of next available index and Dict mapping original filter_index to sorted order
@@ -87,7 +92,8 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
         start_idx::Int = 1,
         pareto_rank = nothing,
         rna=false,
-        get_sorted_mapping_only=false
+        get_sorted_mapping_only=false,
+        mark_insignificant::Bool=false
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
     mkpath(save_folder)
@@ -114,15 +120,16 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
     # Build mode prefix with group_id
     mode_prefix = isempty(group_id) ? "mode_" : "mode_$(group_id)_"
 
-    # Check if significant column exists
-    has_significant_col = hasproperty(contributions_df, :significant)
+    # Only consult the :significant column when the caller has opted in to mark cards;
+    # otherwise we skip the annotation entirely (no tag rendered) rather than asserting
+    # that every singleton is significant.
+    annotate_significance = mark_insignificant && hasproperty(contributions_df, :significant)
 
     for (i, k) in enumerate(sorted_keys)
         idx = start_idx + i - 1
         pfm = normalize_countmat(count_matrices[k])
-        
-        # Extract significance from first row of group (all rows in group have same value)
-        is_significant = has_significant_col ? first(gdf_filters[k].significant) : true
+
+        is_significant = annotate_significance ? first(gdf_filters[k].significant) : true
 
         # Use sorted index (i) as display_index for consistent numbering
         process_and_register_singleton!(all_indices, pts, 
