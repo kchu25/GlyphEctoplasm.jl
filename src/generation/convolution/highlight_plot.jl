@@ -21,26 +21,27 @@ end
 
 
 """
-    _sync_xy_ticks!(ax; n_ticks=5)
+    _sync_xy_ticks!(ax, xv, yv; n_ticks=5)
 
 Force an Axis to have identical x and y limits and identical tick positions,
-which is appropriate for any prediction-vs-observed plot where both axes
-represent the same quantity.  Computes a shared range from the current data
-limits, generates `n_ticks` nicely rounded ticks, and applies them to both axes.
+appropriate for any prediction-vs-observed plot where both axes represent
+the same quantity. The shared range is taken from the actual data extents
+of `xv` and `yv` (with a small margin), so nothing is clipped. `n_ticks`
+nicely rounded ticks are placed *inside* that range for display only — they
+do not define the limits.
 """
-function _sync_xy_ticks!(ax; n_ticks=5)
-    # Read current auto limits
-    xl = ax.xaxis.attributes.limits[]
-    yl = ax.yaxis.attributes.limits[]
-    lo = min(xl[1], yl[1])
-    hi = max(xl[2], yl[2])
+function _sync_xy_ticks!(ax, xv, yv; n_ticks=5)
+    # Anchor the shared limits to the actual data extents — reading the axis's
+    # own `attributes.limits[]` before render returns init defaults (commonly
+    # (0, 10)), which silently clipped data below zero. Compute lo/hi from the
+    # plotted data directly so nothing is hidden.
+    lo = min(minimum(xv), minimum(yv))
+    hi = max(maximum(xv), maximum(yv))
 
-    # Compute nice round tick positions using Makie's own algorithm
+    margin = (hi - lo) * 0.04
+    shared_lims = (lo - margin, hi + margin)
+
     ticks = Makie.get_tickvalues(Makie.LinearTicks(n_ticks), lo, hi)
-
-    # Extend limits slightly beyond outermost ticks
-    margin = (ticks[end] - ticks[1]) * 0.04
-    shared_lims = (ticks[1] - margin, ticks[end] + margin)
 
     ax.xticks = ticks
     ax.yticks = ticks
@@ -112,8 +113,9 @@ avoid clutter — these mark the densest regions where motif-containing points c
 - `is_in_intersect::BitVector`: Boolean mask with `true` for sequences containing the motif. Length 
   must match `pts.proc_prod` and `pts.labels`.
   
-- `show_density::Bool = true`: Enable/disable density visualization (contours + filled regions). 
-  When `false`, motif points render as plain scatter with no KDE overlay.
+- `show_density::Bool = false`: Enable/disable density visualization (contours + filled regions).
+  Default is `false` — motif points render as plain scatter with no KDE overlay.
+  Set to `true` to overlay the KDE wash + contour lines on motif-containing points.
   
 - `show_r2::Bool = false`: Annotate the plot with R² (coefficient of determination) between 
   predictions and labels, displayed in the bottom-right corner.
@@ -138,7 +140,7 @@ fig = plot_labels_vs_procprod(pts, is_motif;
 save("motif_enrichment.png", fig)
 ```
 """
-function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r2=false, motif_label="Contain motif", alpha_power=1.01)
+function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_r2=false, motif_label="Contain motif", alpha_power=1.01)
     fig = Figure(size=(800, 800))
     ax = Axis(fig[1, 1], 
         xlabel="Predicted values", 
@@ -280,7 +282,7 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r
     axislegend(ax, position=:lt, labelsize=28, markersize=18, 
                framevisible=false, backgroundcolor=:white)
 
-    _sync_xy_ticks!(ax)
-    
+    _sync_xy_ticks!(ax, pts.proc_prod, pts.labels)
+
     return fig
 end
