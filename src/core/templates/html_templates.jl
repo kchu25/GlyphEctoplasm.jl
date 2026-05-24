@@ -983,5 +983,216 @@ html_template_generalization = mt"""<!DOCTYPE html>
 </html>
 """
 
+"""
+HTML template for the statistics page (index3.html).
+
+Briefly documents the two statistical tests reported in each motif card:
+the interaction (synergy) test and the nearest-neighbor distance (NND) test.
+
+Mustache variables:
+- `protein_name`: Title for the page
+- `j`: Page number (should be 3)
+- `upto`: Total number of navigation pages
+"""
+html_template_statistics = mt"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{{:protein_name}}} - Statistics</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .doc-container {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #222;
+            line-height: 1.55;
+        }
+        .doc-container h2 {
+            font-size: 22px;
+            margin-top: 36px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .doc-container h2:first-of-type { margin-top: 0; }
+        .doc-container p { font-size: 15px; margin: 8px 0; }
+        .doc-container code {
+            background: #f3f3f5;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 13.5px;
+        }
+        .doc-note { font-size: 13px; color: #777; margin-top: 6px; }
+    </style>
+</head>
+<body>
+    <br><br>
+    <div class="wrapper">
+        <div id="nav" style="display: flex; justify-content: center;"></div>
+        <br><br>
+
+        <div class="doc-container">
+            <h2>Interaction test</h2>
+            <p>
+                Tests whether a motif combination's joint influence on expression is more than the
+                sum of its parts. A no-intercept linear regression is fit with one term per motif
+                plus a single interaction term that switches on only when all motifs co-occur; the
+                response variable is the Shapley value.
+            </p>
+            <p>
+                The null hypothesis is that the interaction coefficient is zero (purely additive
+                contributions). A significant positive coefficient signals <em>synergy</em>; a
+                significant negative one signals <em>antagonism</em>. The coefficient is in the
+                same units as the predicted label, so its magnitude is directly interpretable.
+                p-values are Benjamini&ndash;Hochberg adjusted.
+            </p>
+
+            <h2>Nearest-neighbor distance (NND) test</h2>
+            <p>
+                A permutation test that asks whether the sequences containing a motif combination
+                cluster in a tight band of expression rather than being scattered like a random
+                subset. The statistic is the mean within-group <code>k</code>-NN distance among
+                those sequences' labels; the null distribution comes from random same-size subsets
+                of the full sequence pool.
+            </p>
+            <p>
+                A small (BH-adjusted) p-value flags the motif combination as a focused regulatory
+                signal. Unlike Mann&ndash;Whitney or KS tests, NND can detect a tight cluster even
+                when it sits nested inside a broader background distribution.
+            </p>
+        </div>
+    </div>
+
+    <script>
+    function createArray(num) {
+        return Array.from({ length: num }, (_, i) => i + 1);
+    }
+    function updateNav() {
+        const currentPage = 'index{{:j}}.html';
+        const availablePages = createArray({{:upto}});
+        const navHtml = availablePages.map(num => {
+            const page = 'index' + num + '.html';
+            const label = num === 1 ? 'Motif influence' :
+                          num === 2 ? 'Generalization' :
+                          num === 3 ? 'Statistics' :
+                          num === 4 ? 'Readme' :
+                          num === 5 ? 'Page 5' : 'Page 6';
+            return '<a href="' + page + '" ' + (currentPage === page ? 'class="current"' : '') + '>' + label + '</a>';
+        }).join(' &nbsp;&nbsp; | &nbsp;&nbsp; ');
+        document.getElementById('nav').innerHTML = navHtml;
+    }
+    window.onload = updateNav;
+    </script>
+</body>
+</html>
+"""
+
+"""
+HTML template for the readme page (index4.html).
+
+A very high-level overview of the method plus a placeholder for the paper
+citation (to be filled in once the manuscript is publicly available).
+
+Mustache variables:
+- `protein_name`: Title for the page
+- `j`: Page number (should be 4)
+- `upto`: Total number of navigation pages
+"""
+html_template_readme = mt"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{{:protein_name}}} - Readme</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .doc-container {
+            max-width: 820px;
+            margin: 0 auto;
+            padding: 40px 24px 80px;
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #222;
+            line-height: 1.55;
+        }
+        .doc-container h2 {
+            font-size: 22px;
+            margin-top: 36px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .doc-container h2:first-of-type { margin-top: 0; }
+        .doc-container p { font-size: 15px; margin: 8px 0; }
+        .ref-block {
+            margin-top: 28px;
+            padding: 14px 18px;
+            background: #f7f7f9;
+            border-left: 3px solid #b0b0b8;
+            border-radius: 3px;
+            font-size: 14px;
+            color: #333;
+        }
+        .ref-block em { font-style: italic; }
+        .ref-block .tbd { color: #888; font-size: 13px; }
+    </style>
+</head>
+<body>
+    <br><br>
+    <div class="wrapper">
+        <div id="nav" style="display: flex; justify-content: center;"></div>
+        <br><br>
+
+        <div class="doc-container">
+            <h2>Method overview</h2>
+            <p>
+                Modern neural networks predict expression from DNA or RNA sequence with high
+                accuracy, but rarely tell you which features they're keying on. This page is the
+                result of working that backward &mdash; starting from a trained model (predicting
+                promoter activity, ribosome load, percent-spliced-in, or any other readout) and
+                surfacing the combinations of 2&ndash;5 co-occurring motifs the model leans on to
+                make its predictions.
+            </p>
+            <p>
+                Joint influence is quantified using power indices (Shapley / Banzhaf) from
+                cooperative game theory, computed via an auxiliary network and a GPU-accelerated
+                count-min-sketch that makes higher-order combinations tractable. The output is a
+                ranked catalog of motif combinations, each linked to the sequences that carry it
+                and to statistics for whether those sequences cluster at the tails of expression
+                and whether the motifs interact non-additively.
+            </p>
+
+            <h2>Reference</h2>
+            <div class="ref-block">
+                Chu, S., Zhang, C. <em>Identifying motif combinations with extreme expression</em>.
+                <span class="tbd">[citation &amp; link to be added]</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function createArray(num) {
+        return Array.from({ length: num }, (_, i) => i + 1);
+    }
+    function updateNav() {
+        const currentPage = 'index{{:j}}.html';
+        const availablePages = createArray({{:upto}});
+        const navHtml = availablePages.map(num => {
+            const page = 'index' + num + '.html';
+            const label = num === 1 ? 'Motif influence' :
+                          num === 2 ? 'Generalization' :
+                          num === 3 ? 'Statistics' :
+                          num === 4 ? 'Readme' :
+                          num === 5 ? 'Page 5' : 'Page 6';
+            return '<a href="' + page + '" ' + (currentPage === page ? 'class="current"' : '') + '>' + label + '</a>';
+        }).join(' &nbsp;&nbsp; | &nbsp;&nbsp; ');
+        document.getElementById('nav').innerHTML = navHtml;
+    }
+    window.onload = updateNav;
+    </script>
+</body>
+</html>
+"""
+
 """Closing HTML tags"""
 html_end = "</body></html>"

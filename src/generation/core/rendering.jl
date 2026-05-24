@@ -113,4 +113,39 @@ function render_generalization_page!(save_path::AbstractString;
     end
 end
 
-export render_and_save_outputs!, render_generalization_page!
+"""
+    render_statistics_page!(save_path; page_title, nav_page_count)
+
+Render the statistics page (index3.html) — a brief writeup of the interaction
+and NND tests that the motif cards report.
+"""
+function render_statistics_page!(save_path::AbstractString;
+        page_title::AbstractString="n/a",
+        nav_page_count::Integer=4)
+    mkpath(save_path)
+    html_rendered = Mustache.render(html_template_statistics,
+        protein_name=page_title, j=3, upto=nav_page_count)
+    open(joinpath(save_path, "index3.html"), "w") do io
+        print(io, html_rendered)
+    end
+end
+
+"""
+    render_readme_page!(save_path; page_title, nav_page_count)
+
+Render the readme page (index4.html) — a high-level method overview plus a
+placeholder for the paper citation.
+"""
+function render_readme_page!(save_path::AbstractString;
+        page_title::AbstractString="n/a",
+        nav_page_count::Integer=4)
+    mkpath(save_path)
+    html_rendered = Mustache.render(html_template_readme,
+        protein_name=page_title, j=4, upto=nav_page_count)
+    open(joinpath(save_path, "index4.html"), "w") do io
+        print(io, html_rendered)
+    end
+end
+
+export render_and_save_outputs!, render_generalization_page!,
+       render_statistics_page!, render_readme_page!

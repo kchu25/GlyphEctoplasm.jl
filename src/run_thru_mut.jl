@@ -53,4 +53,8 @@ function plot_motifs_mut_case(data, m,
         use_unified = use_unified,
         enable_colored_borders = enable_colored_borders
     )
+
+    # Render statistics (index3.html) and readme (index4.html) docs pages
+    render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count)
+    render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count)
 end

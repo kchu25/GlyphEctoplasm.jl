@@ -82,11 +82,15 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     publication_kde_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
 
     # Render generalization page (index2.html)
-    render_generalization_page!(save_path; 
-        page_title=page_title, 
+    render_generalization_page!(save_path;
+        page_title=page_title,
         nav_page_count=nav_page_count,
         image_filename="generalization.png"
     )
+
+    # Render statistics (index3.html) and readme (index4.html) docs pages
+    render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count)
+    render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count)
 
     render_and_save_outputs!(json_motifs, html_dict, 1; 
         html_template=html_template_unified, 

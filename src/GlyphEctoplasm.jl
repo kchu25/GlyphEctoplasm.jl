@@ -111,13 +111,16 @@ export process_singletons!, process_multi_motifs!
 export process_single_mut_region!, process_multi_mut_regions!
 
 # Rendering functions
-export render_and_save_outputs!, render_generalization_page!
+export render_and_save_outputs!, render_generalization_page!,
+       render_statistics_page!, render_readme_page!
 
 # Sensitivity analysis
 export run_nnd_sensitivity_analysis, run_nnd_sensitivity_analysis_null, SENSITIVITY_KS
 
 # Template constants
-export html_template_unified, html_template_generalization, script_template, template_css
+export html_template_unified, html_template_generalization,
+       html_template_statistics, html_template_readme,
+       script_template, template_css
 
 # Rendering
 export plot_motifs_conv_case, plot_motifs_mut_case
