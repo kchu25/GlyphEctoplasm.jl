@@ -2,6 +2,7 @@
 function plot_motifs_mut_case(data, m,
         contributions_df_filtered, dfs;
         pts=nothing, pts_test=nothing, all_indices=nothing,
+        interaction_summaries=nothing,
         dpi=65, save_path="tmp2", xlim=(-2,2),
         page_title="Mutation Regions Analysis",
         reduction_on_ref=false,
@@ -46,7 +47,8 @@ function plot_motifs_mut_case(data, m,
         sort_globally = sort_globally,    # Enable hierarchical sorting
         sort_by_pareto = sort_by_pareto,   # Use Pareto ranking within groups
         pts = pts,                         # Per-datapoint preds/labels for indicator plots (nothing => skip)
-        all_indices = all_idx              # Population basis aligned to `pts`
+        all_indices = all_idx,             # Population basis aligned to `pts`
+        interaction_summaries = interaction_summaries  # Per-motif interaction text (string-valued, conv format)
     )
 
     render_and_save_outputs!(json_motifs, html_dict, 1;

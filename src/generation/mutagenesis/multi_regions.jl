@@ -422,7 +422,7 @@ Returns:
 """
 function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list;
         start_idx = 1, sort_globally = true, sort_by_pareto = true,
-        pts = nothing, all_indices = nothing)
+        pts = nothing, all_indices = nothing, interaction_summaries = nothing)
     
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -449,8 +449,15 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
     end
     
     current_idx = start_idx
-    
+
     registered_names = String[]  # Track what we register
+
+    # Accumulate failures/diagnostics and report once at the end instead of
+    # spamming one log line per motif (keeps stdout quiet on large runs).
+    n_failed = 0;            first_error = nothing
+    n_indicator_failed = 0;  first_indicator_error = nothing
+    n_interaction_candidates = 0; n_interaction_hits = 0
+
     for meta in all_metadata
         mkpath(meta.save_folder)
         
@@ -513,11 +520,21 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             # derives from the card image — <dir>/yy_kde_intersect_<file_name>.png
             # (see openSingletonModal in js_modals.jl). All mutation-region cards
             # register a single image per mode, so they all open the singleton modal.
+            nnd_result = nothing
             if pts !== nothing && all_indices !== nothing
-                is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
-                kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
-                save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"),
-                     kde_fig, px_per_unit=1)
+                # Non-fatal: a failure here (e.g. pts not aligned to all_indices)
+                # must not abort the whole card — just skip the indicator plot.
+                try
+                    is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
+                    kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
+                    save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"),
+                         kde_fig, px_per_unit=1)
+                    # Cluster-tightness (NND) permutation test — same as the conv case.
+                    nnd_result = nnd_permutation_test_1d(findall(is_in_intersect), pts.labels)
+                catch e_ind
+                    n_indicator_failed += 1
+                    first_indicator_error === nothing && (first_indicator_error = e_ind)
+                end
             end
 
             flat_windows = build_motif_windows(
@@ -526,11 +543,29 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             )
             save_positional_info(flat_windows, paths, meta.filter_len)
             
+            # Look up this motif's interaction summary (multi-region motifs only).
+            # `interaction_summaries` mirrors the convolution case: a vector indexed
+            # by motif size (index 1 => size 2, ...), each a Dict keyed by the
+            # (m1, m2, ...) filter-index NamedTuple. No remapping needed here — the
+            # mutation pipeline keeps original filter indices in meta.key.
+            interaction_str = nothing
+            if interaction_summaries !== nothing && meta.motif_size >= 2 &&
+                    meta.motif_size - 1 <= length(interaction_summaries)
+                n_interaction_candidates += 1
+                summary_dict = interaction_summaries[meta.motif_size - 1]
+                lookup_syms = ntuple(i -> Symbol("m$i"), meta.motif_size)
+                lookup_vals = ntuple(i -> Int(getfield(meta.key, Symbol("m$i"))), meta.motif_size)
+                interaction_str = get(summary_dict, NamedTuple{lookup_syms}(lookup_vals), nothing)
+                interaction_str !== nothing && (n_interaction_hits += 1)
+            end
+
             texts = build_metadata_texts(
-                nothing, paths, meta.median, meta.count; 
-                use_rna=meta.use_rna, 
-                relaxed_median=nothing, 
-                show_meme_and_csv=false
+                nothing, paths, meta.median, meta.count;
+                use_rna=meta.use_rna,
+                relaxed_median=nothing,
+                show_meme_and_csv=false,
+                interaction_summary_mode_str=interaction_str,
+                nnd_result=nnd_result
             )
             
             mode_prefix = isempty(meta.group_id) ? "mode_" : "mode_$(meta.group_id)_"
@@ -544,10 +579,16 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             push!(registered_names, display_name)  # Track registration
             current_idx += 1
         catch e
-            @warn "Failed to save motif $display_name: $e"
+            n_failed += 1
+            first_error === nothing && (first_error = e)
         end
     end
-    
+
+    # One summary line each, instead of a per-motif flood.
+    n_failed > 0 && @warn "register_mutation_region_motifs!: $n_failed motif(s) failed to render and were skipped" first_error
+    n_indicator_failed > 0 && @warn "register_mutation_region_motifs!: indicator plot skipped for $n_indicator_failed motif(s) — check that `pts` is aligned to `all_indices`" first_indicator_error
+    n_interaction_candidates > 0 && @info "register_mutation_region_motifs!: interaction summaries matched $n_interaction_hits / $n_interaction_candidates multi-region motifs"
+
     return current_idx
 end
 
