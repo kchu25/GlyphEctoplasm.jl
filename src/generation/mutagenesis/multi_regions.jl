@@ -422,7 +422,8 @@ Returns:
 """
 function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list;
         start_idx = 1, sort_globally = true, sort_by_pareto = true,
-        pts = nothing, all_indices = nothing, interaction_summaries = nothing)
+        pts = nothing, all_indices = nothing, interaction_summaries = nothing,
+        nnd_k = 15)
     
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -530,7 +531,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                     save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"),
                          kde_fig, px_per_unit=1)
                     # Cluster-tightness (NND) permutation test — same as the conv case.
-                    nnd_result = nnd_permutation_test_1d(findall(is_in_intersect), pts.labels)
+                    nnd_result = nnd_permutation_test_1d(findall(is_in_intersect), pts.labels; k=nnd_k)
                 catch e_ind
                     n_indicator_failed += 1
                     first_indicator_error === nothing && (first_indicator_error = e_ind)
