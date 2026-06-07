@@ -1,7 +1,8 @@
 
 function plot_motifs_mut_case(data, m,
-        contributions_df_filtered, dfs; 
-        dpi=65, save_path="tmp2", xlim=(-2,2), 
+        contributions_df_filtered, dfs;
+        pts=nothing, pts_test=nothing, all_indices=nothing,
+        dpi=65, save_path="tmp2", xlim=(-2,2),
         page_title="Mutation Regions Analysis",
         reduction_on_ref=false,
         float_type=Float32,
@@ -14,6 +15,10 @@ function plot_motifs_mut_case(data, m,
         use_unified=true,
         enable_colored_borders=true
     )
+    # Population index basis for the per-motif indicator plots. Must share the
+    # ordering of `pts` (same contract as the convolution case). Defaults to the
+    # subset the mutation pipeline already filters on.
+    all_idx = all_indices === nothing ? data.raw_data.most_common_length_indices : all_indices
     # Single configuration object for all mutation region analysis
     m_config = MutationRegionConfig(data;
         filter_len = m.receptive_field,
@@ -39,7 +44,9 @@ function plot_motifs_mut_case(data, m,
         json_motifs, html_dict, all_metadata;
         start_idx = 1,
         sort_globally = sort_globally,    # Enable hierarchical sorting
-        sort_by_pareto = sort_by_pareto    # Use Pareto ranking within groups
+        sort_by_pareto = sort_by_pareto,   # Use Pareto ranking within groups
+        pts = pts,                         # Per-datapoint preds/labels for indicator plots (nothing => skip)
+        all_indices = all_idx              # Population basis aligned to `pts`
     )
 
     render_and_save_outputs!(json_motifs, html_dict, 1;
@@ -53,6 +60,22 @@ function plot_motifs_mut_case(data, m,
         use_unified = use_unified,
         enable_colored_borders = enable_colored_borders
     )
+
+    # Generalization page (index2.html) — only when held-out predictions are
+    # supplied. Mirrors the convolution case; closes the nav_page_count=4 gap.
+    if pts_test !== nothing
+        data_pairs = [
+            (pts_test.predictions, pts_test.labels, "Predictions", "Labels", "Predictions vs Labels"),
+            (pts_test.proc_prod, pts_test.labels, "Learned Predictions", "Labels", "Learned Predictions vs Labels"),
+            (pts_test.proc_prod, pts_test.predictions, "Learned Predictions", "Predictions", "Learned Predictions vs Predictions")
+        ]
+        publication_kde_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
+        render_generalization_page!(save_path;
+            page_title=page_title,
+            nav_page_count=nav_page_count,
+            image_filename="generalization.png"
+        )
+    end
 
     # Render statistics (index3.html) and readme (index4.html) docs pages
     render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count)

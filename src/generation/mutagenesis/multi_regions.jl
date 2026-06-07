@@ -421,7 +421,8 @@ Returns:
 - Next available index for mode numbering
 """
 function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list;
-        start_idx = 1, sort_globally = true, sort_by_pareto = true)
+        start_idx = 1, sort_globally = true, sort_by_pareto = true,
+        pts = nothing, all_indices = nothing)
     
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -506,7 +507,19 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             )
             
             save_influence_plot(meta.banzhafs, paths.influence.abs; xlim=meta.xlim)
-            
+
+            # Indicator plot (per-motif yy-KDE): only when per-datapoint `pts` is
+            # supplied. Saved under the filename convention the singleton modal
+            # derives from the card image — <dir>/yy_kde_intersect_<file_name>.png
+            # (see openSingletonModal in js_modals.jl). All mutation-region cards
+            # register a single image per mode, so they all open the singleton modal.
+            if pts !== nothing && all_indices !== nothing
+                is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
+                kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
+                save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"),
+                     kde_fig, px_per_unit=1)
+            end
+
             flat_windows = build_motif_windows(
                 meta.gdf_row, meta.motif_size, meta.filter_len; 
                 offset=meta.config.data.prefix_offset
