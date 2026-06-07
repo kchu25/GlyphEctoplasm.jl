@@ -12,7 +12,7 @@ function plot_motifs_mut_case(data, m,
         off_region_search=true,
         split_by_sign=true,
         sort_globally=true,
-        sort_by_pareto=true,
+        sort_by_pareto=false,   # default: sign → group → influence → count (set true for Pareto ranking)
         nav_page_count=4,
         use_unified=true,
         enable_colored_borders=true

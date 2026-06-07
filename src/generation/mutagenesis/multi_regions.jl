@@ -439,12 +439,15 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             # Group by sign, then by group_id, compute Pareto ranks within each group, then sort
             all_metadata = sort_by_group_and_pareto(all_metadata)
         else
-            # Simple sort: positive first, then by group_id (single_region first), then by abs(median)
-            # Positives: high to low abs(median), Negatives: low to high abs(median)
+            # Simple lexicographic sort: sign (positive first), then group
+            # (single_region first), then influence, then count.
+            # Positives: high to low abs(median); Negatives: low to high abs(median).
+            # Count breaks the (rare) influence ties — higher count first.
             all_metadata = sort(all_metadata, by=m -> (
                 m.median > 0 ? 0 : 1,  # Positive first
                 m.group_id == "single_region" ? 0 : parse(Int, split(m.group_id, '_')[1]),
-                m.median > 0 ? -abs(m.median) : abs(m.median)  # Desc for pos, asc for neg
+                m.median > 0 ? -abs(m.median) : abs(m.median),  # Desc for pos, asc for neg
+                -m.count                                         # Higher count first
             ))
         end
     end
