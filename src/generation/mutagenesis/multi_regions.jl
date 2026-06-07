@@ -397,7 +397,86 @@ function compute_pareto_ranks_subset_wrapped(augmented_list, start_idx, end_idx)
 end
 
 """
-    register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list; 
+    motif_filter_indices(meta)
+
+The filter indices `(m1, m2, ...)` of a motif, read from its grouping key.
+Returns a tuple of length `meta.motif_size`.
+"""
+motif_filter_indices(meta) = ntuple(i -> getfield(meta.key, Symbol("m$i")), meta.motif_size)
+
+"""
+    motif_filename_and_display(meta) -> (file_name, display_name)
+
+Compute the collision-free output filename and the card display name for a motif:
+- single-region singleton: `<m1>_<span>`
+- multi-region singleton:  `<m1>_<first>:<last>` (full position range)
+- multi-motif:             `<filters>_<positions>` (original, pre-reduction positions)
+- fallback:                the span (or the key string)
+
+The card always shows the (reduced) span; only the filename disambiguates.
+"""
+function motif_filename_and_display(meta)
+    if !isempty(meta.span) && meta.motif_size == 1 && haskey(meta.key, :m1)
+        # Singletons: filter-prefixed filename, span shown on the card
+        if meta.group_id != "single_region" && length(meta.positions) > 0
+            # Multi-region singleton: use full range for filename
+            first_pos = meta.positions[1]
+            last_mat  = meta.count_matrices[end]
+            last_pos  = meta.positions[end] + size(last_mat, 2) - 1
+            file_name = "$(meta.key.m1)_$(first_pos):$(last_pos)"
+        else
+            # Single-region singleton: use span as-is
+            file_name = "$(meta.key.m1)_$(meta.span)"
+        end
+        return file_name, meta.span
+    elseif meta.motif_size > 1
+        # Multi-motifs: filter indices AND original (pre-reduction) positions to avoid collisions
+        filter_str   = join(motif_filter_indices(meta), "_")
+        position_str = join((getfield(meta.key, Symbol("m$(i)_position")) for i in 1:meta.motif_size), "_")
+        return "$(filter_str)_$(position_str)", meta.span
+    else
+        # Fallback: use full key string
+        file_name = !isempty(meta.span) ? meta.span : "$(get_k_mode_str(meta.key))"
+        return file_name, file_name
+    end
+end
+
+"""
+    save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k) -> nnd_result
+
+Save the per-motif indicator plot (yy-KDE) and run the cluster-tightness (NND)
+permutation test, returning its result. The plot is written under the filename
+convention the singleton modal derives from the card image
+(`<dir>/yy_kde_intersect_<file_name>.png`). May throw; callers wrap this so a
+failure (e.g. `pts` not aligned to `all_indices`) only skips this one plot.
+"""
+function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k)
+    is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
+    kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
+    save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"), kde_fig, px_per_unit=1)
+    return nnd_permutation_test_1d(findall(is_in_intersect), pts.labels; k=nnd_k)
+end
+
+"""
+    lookup_interaction(meta, interaction_summaries) -> (is_candidate, interaction_str)
+
+Look up a multi-region motif's interaction summary. `interaction_summaries` is a
+vector indexed by motif size (index 1 => size 2, ...), each a Dict keyed by the
+`(m1, m2, ...)` filter-index NamedTuple. Returns whether this motif is even a
+candidate (multi-region with a dict for its size) and the matched string (or
+`nothing`). No remapping needed — the mutation pipeline keeps original indices.
+"""
+function lookup_interaction(meta, interaction_summaries)
+    (interaction_summaries === nothing || meta.motif_size < 2 ||
+        meta.motif_size - 1 > length(interaction_summaries)) && return (false, nothing)
+    summary_dict = interaction_summaries[meta.motif_size - 1]
+    syms = ntuple(i -> Symbol("m$i"), meta.motif_size)
+    vals = Int.(motif_filter_indices(meta))
+    return (true, get(summary_dict, NamedTuple{syms}(vals), nothing))
+end
+
+"""
+    register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list;
                                      start_idx=1, sort_globally=true, sort_by_pareto=true)
 
 Save and register collected mutation region motifs. Sorts motifs by sign (positive first),
@@ -465,43 +544,8 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
     for meta in all_metadata
         mkpath(meta.save_folder)
         
-        # Generate file name (with filter prefix for singletons to avoid collisions)
-        # and display name (clean span for UI display)
-        if !isempty(meta.span) && meta.motif_size == 1 && haskey(meta.key, :m1)
-            # Singletons: use filter-prefixed name for file
-            # For filename, use simple start:end (first to last position) to avoid commas/spaces
-            if meta.group_id != "single_region" && length(meta.positions) > 0
-                # Multi-region singleton: use full range for filename
-                first_pos = meta.positions[1]
-                last_mat = meta.count_matrices[end]
-                last_pos = meta.positions[end] + size(last_mat, 2) - 1
-                file_name = "$(meta.key.m1)_$(first_pos):$(last_pos)"
-            else
-                # Single-region singleton: use span as-is
-                file_name = "$(meta.key.m1)_$(meta.span)"
-            end
-            display_name = meta.span  # Always show the actual fragmented span on the card
-        else
-            # Multi-motifs: include filter indices AND original positions to avoid collisions
-            if meta.motif_size > 1
-                # Extract filter indices from key (m1, m2, m3, ...)
-                filter_indices = [getfield(meta.key, Symbol("m$i")) for i in 1:meta.motif_size]
-                filter_str = join(filter_indices, "_")
-                
-                # Use ORIGINAL positions from the grouping key (m1_position, m2_position, etc.)
-                # These are the positions BEFORE any reference filtering/reduction
-                original_positions = [getfield(meta.key, Symbol("m$(i)_position")) for i in 1:meta.motif_size]
-                position_str = join(original_positions, "_")
-                file_name = "$(filter_str)_$(position_str)"
-                
-                display_name = meta.span  # Show only the reduced span on card, not filters
-            else
-                # Fallback: use full key string
-                file_name = !isempty(meta.span) ? meta.span : "$(get_k_mode_str(meta.key))"
-                display_name = file_name
-            end
-        end
-        
+        file_name, display_name = motif_filename_and_display(meta)
+
         paths = build_motif_paths(file_name, meta.save_folder, meta.motif_type)
         
         try
@@ -519,22 +563,14 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             
             save_influence_plot(meta.banzhafs, paths.influence.abs; xlim=meta.xlim)
 
-            # Indicator plot (per-motif yy-KDE): only when per-datapoint `pts` is
-            # supplied. Saved under the filename convention the singleton modal
-            # derives from the card image — <dir>/yy_kde_intersect_<file_name>.png
-            # (see openSingletonModal in js_modals.jl). All mutation-region cards
-            # register a single image per mode, so they all open the singleton modal.
+            # Per-motif indicator plot + NND test (only when `pts` is supplied).
+            # Non-fatal: a failure here (e.g. pts not aligned to all_indices) must
+            # not abort the whole card — just skip the indicator plot.
             nnd_result = nothing
             if pts !== nothing && all_indices !== nothing
-                # Non-fatal: a failure here (e.g. pts not aligned to all_indices)
-                # must not abort the whole card — just skip the indicator plot.
                 try
-                    is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
-                    kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
-                    save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"),
-                         kde_fig, px_per_unit=1)
-                    # Cluster-tightness (NND) permutation test — same as the conv case.
-                    nnd_result = nnd_permutation_test_1d(findall(is_in_intersect), pts.labels; k=nnd_k)
+                    nnd_result = save_indicator_and_nnd(meta, paths, file_name;
+                        pts=pts, all_indices=all_indices, nnd_k=nnd_k)
                 catch e_ind
                     n_indicator_failed += 1
                     first_indicator_error === nothing && (first_indicator_error = e_ind)
@@ -547,19 +583,10 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             )
             save_positional_info(flat_windows, paths, meta.filter_len)
             
-            # Look up this motif's interaction summary (multi-region motifs only).
-            # `interaction_summaries` mirrors the convolution case: a vector indexed
-            # by motif size (index 1 => size 2, ...), each a Dict keyed by the
-            # (m1, m2, ...) filter-index NamedTuple. No remapping needed here — the
-            # mutation pipeline keeps original filter indices in meta.key.
-            interaction_str = nothing
-            if interaction_summaries !== nothing && meta.motif_size >= 2 &&
-                    meta.motif_size - 1 <= length(interaction_summaries)
+            # Per-motif interaction summary (multi-region motifs only).
+            is_interaction_candidate, interaction_str = lookup_interaction(meta, interaction_summaries)
+            if is_interaction_candidate
                 n_interaction_candidates += 1
-                summary_dict = interaction_summaries[meta.motif_size - 1]
-                lookup_syms = ntuple(i -> Symbol("m$i"), meta.motif_size)
-                lookup_vals = ntuple(i -> Int(getfield(meta.key, Symbol("m$i"))), meta.motif_size)
-                interaction_str = get(summary_dict, NamedTuple{lookup_syms}(lookup_vals), nothing)
                 interaction_str !== nothing && (n_interaction_hits += 1)
             end
 
