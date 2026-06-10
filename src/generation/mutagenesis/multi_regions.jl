@@ -291,11 +291,13 @@ function sort_by_group_and_pareto(metadata_list)
     # Create augmented entries with sort keys (using NamedTuple wrapper)
     augmented = Vector{NamedTuple}(undef, n)
     for (i, m) in enumerate(metadata_list)
-        group_order = m.group_id == "single_region" ? 0 : parse(Int, split(m.group_id, '_')[1])
+        is_singleton = m.group_id == "single_region"
+        group_order = is_singleton ? 0 : parse(Int, split(m.group_id, '_')[1])
         sign_order = m.median > 0 ? 0 : 1
         augmented[i] = (
-            metadata=m, 
-            group_order=group_order, 
+            metadata=m,
+            singleton_order=is_singleton ? 0 : 1,  # Singleton group always first
+            group_order=group_order,
             sign_order=sign_order,
             pareto_rank=0  # Will be set later
         )
@@ -324,6 +326,7 @@ function sort_by_group_and_pareto(metadata_list)
             old = augmented[i+idx-1]
             augmented[i+idx-1] = (
                 metadata=old.metadata,
+                singleton_order=old.singleton_order,
                 group_order=old.group_order,
                 sign_order=old.sign_order,
                 pareto_rank=rank
@@ -333,13 +336,15 @@ function sort_by_group_and_pareto(metadata_list)
         i = j
     end
     
-    # Final sort by (sign, group, pareto_rank, abs(median))
+    # Final sort by (singleton, sign, group, pareto_rank, abs(median))
+    # Singleton group always leads, regardless of sign.
     # For positives: higher abs(median) first (-abs for descending)
     # For negatives: lower abs(median) first (+abs for ascending)
     sort!(augmented, by = a -> (
-        a.sign_order, 
-        a.group_order, 
-        a.pareto_rank, 
+        a.singleton_order,
+        a.sign_order,
+        a.group_order,
+        a.pareto_rank,
         a.sign_order == 0 ? -abs(a.metadata.median) : abs(a.metadata.median)
     ))
     
@@ -518,11 +523,14 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             # Group by sign, then by group_id, compute Pareto ranks within each group, then sort
             all_metadata = sort_by_group_and_pareto(all_metadata)
         else
-            # Simple lexicographic sort: sign (positive first), then group
-            # (single_region first), then influence, then count.
+            # Simple lexicographic sort: single_region always first (regardless of
+            # sign — a near-zero negative singleton must not be exiled below the
+            # multi-region cards), then sign (positive first), then group, then
+            # influence, then count.
             # Positives: high to low abs(median); Negatives: low to high abs(median).
             # Count breaks the (rare) influence ties — higher count first.
             all_metadata = sort(all_metadata, by=m -> (
+                m.group_id == "single_region" ? 0 : 1,           # Singleton group first
                 m.median > 0 ? 0 : 1,  # Positive first
                 m.group_id == "single_region" ? 0 : parse(Int, split(m.group_id, '_')[1]),
                 m.median > 0 ? -abs(m.median) : abs(m.median),  # Desc for pos, asc for neg
