@@ -298,12 +298,12 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
     if relaxed_median !== nothing
         # Multi-motif case: show both relaxed and fixed distance medians
         influence_median = string(
-            "Influence Median (Relaxed): <strong>", round(relaxed_median, digits=2),
+            "Shapley values' median (Relaxed): <strong>", round(relaxed_median, digits=2),
             "</strong> | (Fixed): <strong>", round(median_val, digits=2), "</strong>"
         )
     else
         # Singleton case: just show the median
-        influence_median = string("Influence Median: <strong>", round(median_val, digits=2), "</strong>")
+        influence_median = string("Shapley values' median: <strong>", round(median_val, digits=2), "</strong>")
     end
 
     interact_part = begin 

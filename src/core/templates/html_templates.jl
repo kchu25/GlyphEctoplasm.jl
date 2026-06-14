@@ -281,12 +281,12 @@ html_template = mt"""<!DOCTYPE html>
             <div class="multi-modal-body">
                 <div class="multi-modal-left">
                     <div class="multi-modal-influence-container">
-                        <span class="multi-modal-influence-label">Fixed Distance Influence</span>
-                        <img id="multiMotifInfluenceFixed" src="" alt="Fixed Distance Influence">
+                        <span class="multi-modal-influence-label">Fixed Distance Shapley values</span>
+                        <img id="multiMotifInfluenceFixed" src="" alt="Fixed Distance Shapley values">
                     </div>
                     <div class="multi-modal-influence-container">
-                        <span class="multi-modal-influence-label">Relaxed Distance Influence</span>
-                        <img id="multiMotifInfluenceRelaxed" src="" alt="Relaxed Distance Influence">
+                        <span class="multi-modal-influence-label">Relaxed Distance Shapley values</span>
+                        <img id="multiMotifInfluenceRelaxed" src="" alt="Relaxed Distance Shapley values">
                     </div>
                     <div class="multi-modal-info">
                         <div id="multiMotifText1" class="multi-info-item"></div>
@@ -490,8 +490,8 @@ html_template_singleton = mt"""<!DOCTYPE html>
             <div class="singleton-modal-body">
                 <div class="singleton-modal-left">
                     <div class="singleton-modal-influence-container">
-                        <span class="singleton-modal-influence-label">Influence</span>
-                        <img id="singletonModalInfluence" src="" alt="Influence Plot">
+                        <span class="singleton-modal-influence-label">Shapley values</span>
+                        <img id="singletonModalInfluence" src="" alt="Shapley values plot">
                     </div>
                     <div class="singleton-modal-info">
                         <div id="singletonModalText1" class="singleton-info-item"></div>
@@ -796,8 +796,8 @@ html_template_unified = mt"""<!DOCTYPE html>
             <div class="singleton-modal-body">
                 <div class="singleton-modal-left">
                     <div class="singleton-modal-influence-container">
-                        <span class="singleton-modal-influence-label">Influence</span>
-                        <img id="singletonModalInfluence" src="" alt="Influence Plot">
+                        <span class="singleton-modal-influence-label">Shapley values</span>
+                        <img id="singletonModalInfluence" src="" alt="Shapley values plot">
                     </div>
                     <div class="singleton-modal-info">
                         <div id="singletonModalText1" class="singleton-info-item"></div>
@@ -828,12 +828,12 @@ html_template_unified = mt"""<!DOCTYPE html>
             <div class="multi-modal-body">
                 <div class="multi-modal-left">
                     <div class="multi-modal-influence-container">
-                        <span class="multi-modal-influence-label">Fixed Distance Influence</span>
-                        <img id="multiMotifInfluenceFixed" src="" alt="Fixed Distance Influence">
+                        <span class="multi-modal-influence-label">Fixed Distance Shapley values</span>
+                        <img id="multiMotifInfluenceFixed" src="" alt="Fixed Distance Shapley values">
                     </div>
                     <div class="multi-modal-influence-container">
-                        <span class="multi-modal-influence-label">Relaxed Distance Influence</span>
-                        <img id="multiMotifInfluenceRelaxed" src="" alt="Relaxed Distance Influence">
+                        <span class="multi-modal-influence-label">Relaxed Distance Shapley values</span>
+                        <img id="multiMotifInfluenceRelaxed" src="" alt="Relaxed Distance Shapley values">
                     </div>
                     <div class="multi-modal-info">
                         <div id="multiMotifText1" class="multi-info-item"></div>
