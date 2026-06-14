@@ -289,7 +289,7 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
     if show_meme_and_csv
         meme_link = string("<a href=\"", paths.meme.rel, "\">.meme file</a>")
         csv_str = fill_csv_link(paths.csv.rel)
-        meme_csv_combined = string(meme_link, " | ", csv_str)
+        meme_csv_combined = isempty(csv_str) ? meme_link : string(meme_link, " | ", csv_str)
     else
         meme_csv_combined = ""
     end

@@ -9,5 +9,7 @@ Create HTML link that opens sequence highlighting modal.
 # Returns
 HTML anchor tag with onclick handler
 """
-fill_csv_link(csv_link) =
-    "<a href=\"#\" onclick=\"openHighlightPage(\'" * csv_link * "\')\">string highlight</a>"
+# Hidden for now (may re-enable later):
+# fill_csv_link(csv_link) =
+#     "<a href=\"#\" onclick=\"openHighlightPage(\'" * csv_link * "\')\">string highlight</a>"
+fill_csv_link(csv_link) = ""
