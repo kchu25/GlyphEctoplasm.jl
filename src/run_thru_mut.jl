@@ -15,7 +15,9 @@ function plot_motifs_mut_case(data, m,
         sort_by_pareto=false,   # default: sign → group → influence → count (set true for Pareto ranking)
         nav_page_count=4,
         use_unified=true,
-        enable_colored_borders=true
+        enable_colored_borders=true,
+        optimize_pngs::Bool=true,
+        png_colors::Int=64
     )
     # Population index basis for the per-motif indicator plots. Must share the
     # ordering of `pts` (same contract as the convolution case). Defaults to the
@@ -84,4 +86,7 @@ function plot_motifs_mut_case(data, m,
     # Render statistics (index3.html) and readme (index4.html) docs pages
     render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count)
     render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count)
+
+    # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)
+    optimize_pngs && optimize_pngs!(save_path; ncolors=png_colors)
 end

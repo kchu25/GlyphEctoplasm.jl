@@ -54,6 +54,9 @@ using StatsBase
 using FileIO
 using Printf
 using Colors
+using FixedPointNumbers: N0f8
+using PNGFiles
+using IndirectArrays
 using KernelDensity: kde
 using Random
 using MultipleTesting: adjust, PValues, BenjaminiHochberg
@@ -72,6 +75,7 @@ export BanzhafPlots
 # =============================================================================
 include(joinpath("core", "logo_saving.jl"))
 include(joinpath("core", "json_html_dict.jl"))
+include(joinpath("core", "png_optimize.jl"))
 include(joinpath("core", "constants.jl"))
 include(joinpath("core", "consensus.jl"))
 include(joinpath("core", "html_generation.jl"))
@@ -113,6 +117,9 @@ export process_single_mut_region!, process_multi_mut_regions!
 # Rendering functions
 export render_and_save_outputs!, render_generalization_page!,
        render_statistics_page!, render_readme_page!
+
+# PNG size optimization
+export optimize_pngs!, quantize_png!
 
 # Sensitivity analysis
 export run_nnd_sensitivity_analysis, run_nnd_sensitivity_analysis_null, SENSITIVITY_KS

@@ -23,7 +23,9 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         page_title="n/a", 
         rna=false,
         sensitivity_analysis::Bool=false,
-        dataset_name::Union{String,Nothing}=nothing
+        dataset_name::Union{String,Nothing}=nothing,
+        optimize_pngs::Bool=true,
+        png_colors::Int=64
         );
 
     # ── Sensitivity-analysis-only mode (skip all rendering) ────
@@ -99,8 +101,11 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         nav_page_count=nav_page_count,
         sequence_paths=[""],
         page_title=page_title,
-        save_path=save_path, 
+        save_path=save_path,
         enable_colored_borders = enable_colored_borders,
         use_unified=use_unified
         )
+
+    # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)
+    optimize_pngs && optimize_pngs!(save_path; ncolors=png_colors)
 end
