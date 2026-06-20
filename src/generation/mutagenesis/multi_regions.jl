@@ -501,6 +501,19 @@ function bin_value(value::Real, lo::Real, hi::Real, bin_count::Int)
 end
 
 """
+    group_order(meta) -> Int
+
+Region-group rank used as the primary sort key so the group toggles render in a
+stable order: `single_region` first (`0`), then `2_regions`, `3_regions`, …
+(the integer prefix of `group_id`). Unparseable group ids sort last.
+"""
+function group_order(meta)
+    meta.group_id == "single_region" && return 0
+    n = tryparse(Int, first(split(meta.group_id, '_')))
+    return n === nothing ? typemax(Int) : n
+end
+
+"""
     lookup_interaction(meta, interaction_summaries) -> (is_candidate, interaction_str)
 
 Look up a multi-region motif's interaction summary. `interaction_summaries` is a
@@ -525,7 +538,7 @@ end
 Save and register collected mutation region motifs.
 
 Default sorting (`sort_by_bins=true`) is a binned lexicographic order:
-1. single_region singletons lead
+1. group: single_region first, then 2_regions, 3_regions, … (keeps the group toggles ordered)
 2. Shapley-median bin (high → low) — `bin_count` equal-width bins over the global range
 3. cluster-median bin (high → low) — median expression of the motif's sequences, same binning
 4. count (high → low), left un-binned
@@ -565,15 +578,16 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
     # Sort globally if requested
     if sort_globally
         if sort_by_bins
-            # Binned lexicographic sort. Continuous values (Shapley median, cluster
-            # median) are coarsened into `bin_count` equal-width bins over their
-            # global ranges, then compared bin-by-bin — sorting on raw continuous
-            # values draws meaningless distinctions between near-equal motifs.
-            # Order: single_region first, then Shapley bin (high→low), then cluster
-            # bin (high→low), then count (high→low). Count is left un-binned.
+            # Binned lexicographic sort. Group order is primary so the group
+            # toggles render single_region → 2_regions → 3_regions → … . Within a
+            # group, continuous values (Shapley median, cluster median) are
+            # coarsened into `bin_count` equal-width bins over their global ranges
+            # and compared bin-by-bin — sorting on raw continuous values draws
+            # meaningless distinctions between near-equal motifs. Count (un-binned)
+            # breaks remaining ties.
             augmented = [(
                 meta = m,
-                is_single = m.group_id == "single_region",
+                grp = group_order(m),
                 shap = float(m.median),
                 clus = motif_cluster_median(m, pts, all_indices),
                 cnt = m.count,
@@ -585,7 +599,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             clus_lo, clus_hi = isempty(clus_finite) ? (0.0, 0.0) : extrema(clus_finite)
 
             sort!(augmented, by = a -> (
-                a.is_single ? 0 : 1,                                    # singletons lead
+                a.grp,                                                  # single_region, then 2,3,4,… regions
                 -bin_value(a.shap, shap_lo, shap_hi, bin_count),        # high Shapley bin first
                 -bin_value(a.clus, clus_lo, clus_hi, bin_count),        # high cluster bin first
                 -a.cnt,                                                 # higher count first

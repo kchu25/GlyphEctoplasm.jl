@@ -122,31 +122,34 @@ using GlyphEctoplasm.PNGFiles
     end
 
     @testset "binned sort ordering" begin
-        # (label, is_single, shapley_median, cluster_median, count)
+        # (label, group_order, shapley_median, cluster_median, count)
+        # group_order: 0 = single_region, 2 = 2_regions, 3 = 3_regions, ...
         motifs = [
-            ("singleA", true,  0.1,  5.0, 10),
-            ("singleB", true,  0.9,  1.0, 50),
-            ("hiShapHiClus",  false, 0.95, 9.0,  5),
-            ("hiShapLoClus",  false, 0.96, 0.5,  7),
-            ("hiShapLoClus2", false, 0.97, 0.4, 99),  # same shap+cluster bin, higher count
-            ("loShap",        false, -0.9, 8.0, 100),
-            ("noCluster",     false, 0.5,  NaN,  3),
+            ("single",        0, 0.1,  5.0, 10),
+            ("r3_first",      3, 0.9,  1.0, 50),   # higher group sorts after lower group
+            ("r2_hiShapHiC",  2, 0.95, 9.0,  5),
+            ("r2_hiShapLoC",  2, 0.96, 0.5,  7),
+            ("r2_hiShapLoC2", 2, 0.97, 0.4, 99),   # same shap+cluster bin, higher count
+            ("r2_loShap",     2, -0.9, 8.0, 100),
+            ("r2_noCluster",  2, 0.5,  NaN,  3),
         ]
         bc = 10
         slo, shi = extrema(m[3] for m in motifs if !isnan(m[3]))
         clo, chi = extrema(m[4] for m in motifs if !isnan(m[4]))
-        key(m) = (m[2] ? 0 : 1,
+        key(m) = (m[2],                                              # group order primary
                   -GlyphEctoplasm.bin_value(m[3], slo, shi, bc),
                   -GlyphEctoplasm.bin_value(m[4], clo, chi, bc),
                   -m[5])
         labels = [m[1] for m in sort(motifs, by=key)]
 
-        @test labels[1] == "singleB"            # singletons lead, higher shap bin first
-        @test labels[2] == "singleA"
-        @test labels[3] == "hiShapHiClus"       # higher cluster bin first within shap bin
-        @test labels[4] == "hiShapLoClus2"      # count breaks tie (99 > 7) within same bins
-        @test labels[5] == "hiShapLoClus"
-        @test labels[end] == "loShap"           # most-negative Shapley sorts last
+        @test labels[1] == "single"             # single_region group leads
+        # all 2_regions come before the 3_regions group, regardless of influence
+        @test findfirst(==("r3_first"), labels) > findfirst(==("r2_loShap"), labels)
+        # within 2_regions: high shap bin first, then high cluster bin
+        @test labels[2] == "r2_hiShapHiC"       # higher cluster bin first within shap bin
+        @test labels[3] == "r2_hiShapLoC2"      # count breaks tie (99 > 7) within same bins
+        @test labels[4] == "r2_hiShapLoC"
+        @test labels[end] == "r3_first"         # last group (3_regions) sorts last
     end
 
     @testset "cluster median display text" begin
