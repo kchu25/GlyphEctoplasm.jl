@@ -111,4 +111,58 @@ using GlyphEctoplasm.PNGFiles
         end
     end
 
+    @testset "bin_value" begin
+        bv = GlyphEctoplasm.bin_value
+        @test bv(0.0, 0.0, 10.0, 10) == 0
+        @test bv(10.0, 0.0, 10.0, 10) == 9      # top value clamps into last bin
+        @test bv(5.0, 0.0, 10.0, 10) == 5
+        @test bv(2.5, 0.0, 10.0, 10) == 2
+        @test bv(NaN, 0.0, 10.0, 10) == -1      # missing -> sentinel (sorts last)
+        @test bv(3.0, 2.0, 2.0, 10) == 0        # degenerate range -> bin 0
+    end
+
+    @testset "binned sort ordering" begin
+        # (label, is_single, shapley_median, cluster_median, count)
+        motifs = [
+            ("singleA", true,  0.1,  5.0, 10),
+            ("singleB", true,  0.9,  1.0, 50),
+            ("hiShapHiClus",  false, 0.95, 9.0,  5),
+            ("hiShapLoClus",  false, 0.96, 0.5,  7),
+            ("hiShapLoClus2", false, 0.97, 0.4, 99),  # same shap+cluster bin, higher count
+            ("loShap",        false, -0.9, 8.0, 100),
+            ("noCluster",     false, 0.5,  NaN,  3),
+        ]
+        bc = 10
+        slo, shi = extrema(m[3] for m in motifs if !isnan(m[3]))
+        clo, chi = extrema(m[4] for m in motifs if !isnan(m[4]))
+        key(m) = (m[2] ? 0 : 1,
+                  -GlyphEctoplasm.bin_value(m[3], slo, shi, bc),
+                  -GlyphEctoplasm.bin_value(m[4], clo, chi, bc),
+                  -m[5])
+        labels = [m[1] for m in sort(motifs, by=key)]
+
+        @test labels[1] == "singleB"            # singletons lead, higher shap bin first
+        @test labels[2] == "singleA"
+        @test labels[3] == "hiShapHiClus"       # higher cluster bin first within shap bin
+        @test labels[4] == "hiShapLoClus2"      # count breaks tie (99 > 7) within same bins
+        @test labels[5] == "hiShapLoClus"
+        @test labels[end] == "loShap"           # most-negative Shapley sorts last
+    end
+
+    @testset "cluster median display text" begin
+        paths = GlyphEctoplasm.build_motif_paths("x", mktempdir(), "singletons")
+        # conv-style result (no cluster_median field) must not crash or show it
+        t1 = build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=(; k=5, obs_mNND=0.12, p_value=0.03))
+        @test !occursin("cluster median", t1[end])
+        # mut-style result shows the value
+        t2 = build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=(; k=5, obs_mNND=0.12, p_value=0.03, cluster_median=1.234))
+        @test occursin("cluster median: <strong>1.234", t2[end])
+        # NaN is omitted
+        t3 = build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=(; k=5, obs_mNND=0.12, p_value=0.03, cluster_median=NaN))
+        @test !occursin("cluster median", t3[end])
+    end
+
 end

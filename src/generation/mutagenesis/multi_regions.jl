@@ -459,7 +459,45 @@ function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k)
     is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
     kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
     save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"), kde_fig, px_per_unit=1)
-    return nnd_permutation_test_1d(findall(is_in_intersect), pts.labels; k=nnd_k)
+    nnd = nnd_permutation_test_1d(findall(is_in_intersect), pts.labels; k=nnd_k)
+    # Cluster median: where the motif's sequences sit on the expression axis
+    # (median of their raw expression labels). Stored alongside the NND result
+    # for display and later comparisons.
+    cluster_median = any(is_in_intersect) ? median(@view pts.labels[is_in_intersect]) : NaN
+    return (; nnd.k, nnd.obs_mNND, nnd.p_value, cluster_median)
+end
+
+"""
+    motif_cluster_median(meta, pts, all_indices) -> Float64
+
+Median of the expression labels (`pts.labels`) over the sequences that contain
+this motif. Returns `NaN` when unavailable (`pts`/`all_indices` missing, or no
+overlapping sequences). Cheap (no permutation test) — used to bin motifs for
+sorting before the per-motif render loop computes the full NND result.
+"""
+function motif_cluster_median(meta, pts, all_indices)
+    (pts === nothing || all_indices === nothing) && return NaN
+    try
+        members = Set(intersect(meta.gdf_row.data_pt_index, all_indices))
+        mask = all_indices .∈ Ref(members)
+        return any(mask) ? median(@view pts.labels[mask]) : NaN
+    catch
+        return NaN
+    end
+end
+
+"""
+    bin_value(value, lo, hi, bin_count) -> Int
+
+Map `value` to one of `bin_count` equal-width bins spanning `[lo, hi]`, returning
+a 0-based bin index in `0:(bin_count-1)`. Degenerate ranges (`hi <= lo`) collapse
+to bin `0`; `NaN` values return `-1` (a sentinel that sorts last under
+highest-bin-first ordering).
+"""
+function bin_value(value::Real, lo::Real, hi::Real, bin_count::Int)
+    isnan(value) && return -1
+    hi <= lo && return 0
+    return clamp(floor(Int, (value - lo) / (hi - lo) * bin_count), 0, bin_count - 1)
 end
 
 """
@@ -484,31 +522,38 @@ end
     register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list;
                                      start_idx=1, sort_globally=true, sort_by_pareto=true)
 
-Save and register collected mutation region motifs. Sorts motifs by sign (positive first),
-then by group (single_region first), then by Pareto rank within each group.
+Save and register collected mutation region motifs.
 
-Sorting hierarchy:
-1. Sign: Positive contributions first, then negative
-2. Group: single_region, 2_regions, 3_regions, ... (within each sign)
-3. Pareto rank: Based on abs(median) and count (within each group)
-4. Ties: Sorted by abs(median) - descending for positives, ascending for negatives
+Default sorting (`sort_by_bins=true`) is a binned lexicographic order:
+1. single_region singletons lead
+2. Shapley-median bin (high → low) — `bin_count` equal-width bins over the global range
+3. cluster-median bin (high → low) — median expression of the motif's sequences, same binning
+4. count (high → low), left un-binned
+
+Binning coarsens near-equal continuous values so the next key can break ties
+meaningfully. Set `sort_by_bins=false` to fall back to the older `sort_by_pareto`
+(Pareto ranks on |median|/count) or, with both false, the plain lexicographic
+sign→group→|median|→count order.
 
 Parameters:
 - `json_motifs`: JSON motif dictionary
 - `html_dict`: HTML dictionary
 - `motif_metadata_list`: Vector (or vector of vectors) of motif metadata from collect_mutation_region_metadata
 - `start_idx::Int = 1`: Starting index for mode numbering
-- `sort_globally::Bool = true`: If true, sort motifs globally (by sign, group, then Pareto rank)
-- `sort_by_pareto::Bool = true`: If true, use Pareto ranking within groups (median, count); else use median only
+- `sort_globally::Bool = true`: If true, sort motifs globally
+- `sort_by_bins::Bool = true`: If true, use the binned sort described above (takes precedence)
+- `bin_count::Int = 10`: Number of equal-width bins for the Shapley and cluster medians
+- `sort_by_pareto::Bool = false`: Fallback Pareto ranking when `sort_by_bins=false`
 
 Returns:
 - Next available index for mode numbering
 """
 function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list;
-        start_idx = 1, sort_globally = true, sort_by_pareto = true,
+        start_idx = 1, sort_globally = true, sort_by_pareto = false,
+        sort_by_bins = true, bin_count = 10,
         pts = nothing, all_indices = nothing, interaction_summaries = nothing,
         nnd_k = 15)
-    
+
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
     all_metadata = if !isempty(motif_metadata_list) && motif_metadata_list[1] isa Vector
@@ -516,10 +561,37 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
     else
         motif_metadata_list
     end
-    
+
     # Sort globally if requested
     if sort_globally
-        if sort_by_pareto
+        if sort_by_bins
+            # Binned lexicographic sort. Continuous values (Shapley median, cluster
+            # median) are coarsened into `bin_count` equal-width bins over their
+            # global ranges, then compared bin-by-bin — sorting on raw continuous
+            # values draws meaningless distinctions between near-equal motifs.
+            # Order: single_region first, then Shapley bin (high→low), then cluster
+            # bin (high→low), then count (high→low). Count is left un-binned.
+            augmented = [(
+                meta = m,
+                is_single = m.group_id == "single_region",
+                shap = float(m.median),
+                clus = motif_cluster_median(m, pts, all_indices),
+                cnt = m.count,
+            ) for m in all_metadata]
+
+            shap_finite = [a.shap for a in augmented if !isnan(a.shap)]
+            clus_finite = [a.clus for a in augmented if !isnan(a.clus)]
+            shap_lo, shap_hi = isempty(shap_finite) ? (0.0, 0.0) : extrema(shap_finite)
+            clus_lo, clus_hi = isempty(clus_finite) ? (0.0, 0.0) : extrema(clus_finite)
+
+            sort!(augmented, by = a -> (
+                a.is_single ? 0 : 1,                                    # singletons lead
+                -bin_value(a.shap, shap_lo, shap_hi, bin_count),        # high Shapley bin first
+                -bin_value(a.clus, clus_lo, clus_hi, bin_count),        # high cluster bin first
+                -a.cnt,                                                 # higher count first
+            ))
+            all_metadata = [a.meta for a in augmented]
+        elseif sort_by_pareto
             # Group by sign, then by group_id, compute Pareto ranks within each group, then sort
             all_metadata = sort_by_group_and_pareto(all_metadata)
         else

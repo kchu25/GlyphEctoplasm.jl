@@ -12,7 +12,9 @@ function plot_motifs_mut_case(data, m,
         off_region_search=true,
         split_by_sign=true,
         sort_globally=true,
-        sort_by_pareto=false,   # default: sign → group → influence → count (set true for Pareto ranking)
+        sort_by_bins=true,      # default: single_region → Shapley-bin → cluster-bin → count
+        bin_count=10,           # equal-width bins for Shapley median and cluster median
+        sort_by_pareto=false,   # fallback when sort_by_bins=false (Pareto on |median|/count)
         nav_page_count=4,
         use_unified=true,
         enable_colored_borders=true,
@@ -48,7 +50,9 @@ function plot_motifs_mut_case(data, m,
         json_motifs, html_dict, all_metadata;
         start_idx = 1,
         sort_globally = sort_globally,    # Enable hierarchical sorting
-        sort_by_pareto = sort_by_pareto,   # Use Pareto ranking within groups
+        sort_by_bins = sort_by_bins,       # Binned: single_region → Shapley-bin → cluster-bin → count
+        bin_count = bin_count,             # Equal-width bins for the two medians
+        sort_by_pareto = sort_by_pareto,   # Fallback Pareto ranking when sort_by_bins=false
         pts = pts,                         # Per-datapoint preds/labels for indicator plots (nothing => skip)
         all_indices = all_idx,             # Population basis aligned to `pts`
         interaction_summaries = interaction_summaries,  # Per-motif interaction text (string-valued, conv format)

@@ -330,7 +330,16 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
             string("p-value (NND): <strong>", @sprintf("%.2g", pv), "</strong>")
         end
 
-        string(nnd_str, " &nbsp;|&nbsp; ", pval_str)
+        # Cluster median (mutation case only): where the motif's sequences sit on
+        # the expression axis. Guarded so the conv-case nnd_result (no such field)
+        # is unaffected.
+        cm_part = if hasproperty(nnd_result, :cluster_median) && !isnan(nnd_result.cluster_median)
+            string(" &nbsp;|&nbsp; cluster median: <strong>", @sprintf("%.3f", nnd_result.cluster_median), "</strong>")
+        else
+            ""
+        end
+
+        string(nnd_str, " &nbsp;|&nbsp; ", pval_str, cm_part)
     end
 
     return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, variance_row]
