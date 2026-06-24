@@ -897,7 +897,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
 </head>
 <body>
     <br><br>
-    <div class="wrapper">
+    <div class="wrapper top-movers-wrapper">
         <div id="nav" style="display: flex; justify-content: center;"></div>
         <br><br>
 

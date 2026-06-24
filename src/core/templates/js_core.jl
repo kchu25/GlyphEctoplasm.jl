@@ -39,9 +39,12 @@ function updateNav() {
         return `<a href="${page}" ${currentPage === page ? 'class="current"' : ''}>${label}</a>`;
     }).join(' &nbsp&nbsp | &nbsp&nbsp ');
 
-    // Prepend the top-movers summary landing page (index.html).
-    const summaryLink = '<a href="index.html">Summary</a>';
-    const fullNav = summaryLink + ' &nbsp&nbsp | &nbsp&nbsp ' + navHtml;
+    // Prepend the top-movers summary landing page (index.html) — only when the
+    // pipeline actually produced one (mutagenesis case). Defaults off so the
+    // convolution case (no index.html) is unchanged and shows no dead link.
+    const fullNav = (typeof window.HAS_SUMMARY !== 'undefined' && window.HAS_SUMMARY)
+        ? ('<a href="index.html">Summary</a> &nbsp&nbsp | &nbsp&nbsp ' + navHtml)
+        : navHtml;
 
     // Note: Readme link removed since page 3 is now "Readme"
     document.getElementById('nav').innerHTML = fullNav;

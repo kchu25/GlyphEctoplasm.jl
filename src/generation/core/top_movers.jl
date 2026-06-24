@@ -11,6 +11,20 @@ for both the mutagenesis and (later) the convolution case.
 """
 
 """
+    WildTypeRegion(wt, start, mutated)
+
+One region's wild-type amino-acid window for the summary card: the full WT string
+`wt` (un-abbreviated), the 1-based `start` position of its first residue, and a
+per-column `mutated` flag (true where the motif's observed consensus differs from
+the wild type). The panel draws one up-arrow under each mutated residue.
+"""
+struct WildTypeRegion
+    wt::String
+    start::Int
+    mutated::Vector{Bool}
+end
+
+"""
     TopMoverEntry
 
 One summary row. Carries the ranking keys, the metadata shown in the right-hand
@@ -32,6 +46,9 @@ struct TopMoverEntry
     span::String             # mutation position(s), e.g. "36:45" or "36:45, 50:60"
     nnd_p::Float64           # NND permutation p-value (NaN when unavailable)
     is_singleton::Bool
+    # Wild-type region(s): full WT string + per-residue mutation flags (drawn as
+    # an amino-acid track with up-arrows under each mutated residue).
+    wt_regions::Vector{WildTypeRegion}
     # Self-contained modal payload (paths relative to save folder)
     img::String              # motif logo
     influence::String        # Shapley/influence plot
@@ -93,6 +110,38 @@ end
 _tm_esc(s) = replace(string(s), "&" => "&amp;", "<" => "&lt;", ">" => "&gt;")
 
 """
+    wt_track_html(regions) -> String
+
+Render the wild-type amino-acid track(s): one row per region — a small span label
+plus a monospace track of residues, each mutated residue marked by an up-arrow and
+its position number underneath. Columns are stacked (residue / arrow / position) so
+they stay aligned without relying on glyph widths. Returns `""` when empty.
+"""
+function wt_track_html(regions::AbstractVector{WildTypeRegion})
+    isempty(regions) && return ""
+    region_html = String[]
+    for reg in regions
+        cols = String[]
+        for (j, ch) in enumerate(reg.wt)
+            mut = j <= length(reg.mutated) && reg.mutated[j]
+            cls    = mut ? "wt-col is-mut" : "wt-col"
+            arrow  = mut ? "▲" : ""
+            posnum = mut ? string(reg.start + j - 1) : ""
+            push!(cols, string(
+                "<div class=\"", cls, "\">",
+                "<span class=\"wt-aa\">", _tm_esc(string(ch)), "</span>",
+                "<span class=\"wt-arrow\">", arrow, "</span>",
+                "<span class=\"wt-pos\">", posnum, "</span></div>"))
+        end
+        span_lbl = "$(reg.start)–$(reg.start + length(reg.wt) - 1)"
+        push!(region_html, string(
+            "<div class=\"wt-region\"><div class=\"wt-span\">", span_lbl,
+            "</div><div class=\"wt-track\">", join(cols), "</div></div>"))
+    end
+    return "<div class=\"wt-block\">" * join(region_html, "\n") * "</div>"
+end
+
+"""
     top_mover_row_html(entry, rowid) -> String
 
 Render one summary row: a clickable card (left) wired to `openTopMover(rowid)`
@@ -117,11 +166,11 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int)
                 <tr><td>cluster median</td><td>$(fmt(e.cluster_median))</td></tr>
                 <tr><td>cluster NND</td><td>$(fmt(e.cluster_nnd))</td></tr>
                 $pval_row
-                <tr><td>position</td><td>$(_tm_esc(e.span))</td></tr>
                 <tr><td>count</td><td>$(e.count)</td></tr>
                 <tr><td>group</td><td>$(_tm_esc(e.group_label))</td></tr>
             </table>
         </div>
+        <div class="top-mover-wt">$(wt_track_html(e.wt_regions))</div>
     </div>"""
 end
 

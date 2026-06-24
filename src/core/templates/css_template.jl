@@ -617,8 +617,15 @@ span.putBar {
    TOP-MOVERS SUMMARY PAGE STYLES
    ============================================================================ */
 
+/* Summary page uses more of the viewport than the grouped page's wrapper. */
+.top-movers-wrapper {
+    width: 90%;
+    max-width: 1280px;
+    padding: 0 24px;
+}
+
 .top-movers-section {
-    max-width: 760px;
+    max-width: 1232px;
     margin: 0 auto 32px auto;
 }
 
@@ -644,7 +651,7 @@ span.putBar {
 .top-mover-row {
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 24px;
 }
 
 /* Left: clickable card. Reuses the singleton card look; border is set via JS. */
@@ -671,11 +678,17 @@ span.putBar {
     z-index: 50;
 }
 
-/* Right: metadata panel. */
+/* Middle: compact metadata panel. */
 .top-mover-meta {
-    flex: 1 1 auto;
+    flex: 0 0 230px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #1f2937;
+}
+
+/* Right: wild-type track fills the remaining horizontal space. */
+.top-mover-wt {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .top-mover-name {
@@ -708,6 +721,57 @@ span.putBar {
     color: #9ca3af;
     font-size: 13px;
     padding: 8px 0;
+}
+
+/* Wild-type amino-acid track: residues with up-arrows under mutated positions. */
+.wt-block { margin: 5px 0 9px 0; }
+.wt-region { margin-bottom: 6px; }
+
+.wt-span {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    color: #9ca3af;
+    margin-bottom: 1px;
+}
+
+.wt-track {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+}
+
+.wt-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 12px;
+}
+
+.wt-aa {
+    font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #b6bcc6;          /* context residues recede */
+}
+
+.wt-col.is-mut .wt-aa {
+    color: #111827;          /* mutated residue stands out */
+    font-weight: 700;
+}
+
+.wt-arrow {
+    height: 9px;
+    line-height: 1;
+    font-size: 8px;
+    color: #d97706;          /* sign-neutral amber accent */
+}
+
+.wt-pos {
+    line-height: 1;
+    font-size: 7px;
+    color: #d97706;
+    font-variant-numeric: tabular-nums;
 }
 
 /* ============================================================================

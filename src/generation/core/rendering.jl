@@ -31,7 +31,8 @@ function render_and_save_outputs!(json_motifs::Dict, html_dict, j::Integer;
         sequence_paths::Vector{String},
         page_title::AbstractString="n/a",
         use_unified::Bool=false,
-        enable_colored_borders::Bool=true
+        enable_colored_borders::Bool=true,
+        has_summary::Bool=false
         )
     
     # Ensure save_path directory exists
@@ -66,8 +67,11 @@ function render_and_save_outputs!(json_motifs::Dict, html_dict, j::Integer;
     script_rendered = Mustache.render(script_template,
         mode_counts=size(df, 1), j=j, upto=nav_page_count, sequence_file_paths=sequence_paths)
     
-    # Add global variable to control border coloring
-    border_control_script = "\n// Control colored borders\nwindow.ENABLE_COLORED_BORDERS = $(enable_colored_borders ? "true" : "false");\n"
+    # Add global variables to control border coloring and the Summary nav link.
+    # HAS_SUMMARY gates the top-movers landing-page link in updateNav so the
+    # convolution case (which never emits index.html) shows no dead link.
+    border_control_script = "\n// Control colored borders\nwindow.ENABLE_COLORED_BORDERS = $(enable_colored_borders ? "true" : "false");\n" *
+        "window.HAS_SUMMARY = $(has_summary ? "true" : "false");\n"
     script_rendered = border_control_script * script_rendered
     
     # Write HTML and JS files

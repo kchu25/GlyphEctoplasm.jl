@@ -72,7 +72,8 @@ function plot_motifs_mut_case(data, m,
         sequence_paths = [""],
         page_title = page_title,
         use_unified = use_unified,
-        enable_colored_borders = enable_colored_borders
+        enable_colored_borders = enable_colored_borders,
+        has_summary = true                # Show the Summary (top-movers) nav link
     )
 
     # Generalization page (index2.html) — only when held-out predictions are

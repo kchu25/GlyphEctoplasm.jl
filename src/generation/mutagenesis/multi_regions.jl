@@ -513,6 +513,83 @@ function motif_cluster_nnd(meta, pts, all_indices; nnd_k)
 end
 
 """
+    parse_span_positions(span) -> Set{Int}
+
+Parse a motif's `span` string into the set of (1-based) residue positions it
+marks. Handles the formats `compute_fragment_info` emits — comma-separated
+tokens, each a single position (`"28"`) or an inclusive range (`"37:41"`),
+optionally wrapped in parentheses, e.g. `"(26, 28, 32:33, 37:41)"` →
+`{26,28,32,33,37,38,39,40,41}`. These are the motif's significant (post-reduction)
+columns — the residues the WT track marks with arrows.
+"""
+function parse_span_positions(span::AbstractString)
+    positions = Set{Int}()
+    s = strip(span, ['(', ')', ' '])
+    for tok in split(s, ',')
+        t = strip(tok)
+        isempty(t) && continue
+        if occursin(':', t)
+            parts = split(t, ':')
+            length(parts) == 2 || continue
+            a = tryparse(Int, strip(parts[1])); b = tryparse(Int, strip(parts[2]))
+            (a === nothing || b === nothing) && continue
+            for p in min(a, b):max(a, b); push!(positions, p); end
+        else
+            p = tryparse(Int, t)
+            p !== nothing && push!(positions, p)
+        end
+    end
+    return positions
+end
+
+"""
+    motif_wt_regions(meta) -> Vector{WildTypeRegion}
+
+Build the wild-type amino-acid track(s) for a motif's summary card: one
+`WildTypeRegion` per count-matrix window, holding the full WT window string
+(sliced straight from `data.raw_data.consensus`) and a per-column arrow flag.
+
+Arrow columns come from the motif's `span` — the significant (post-reduction)
+positions across *all* regions, so a 4-region motif gets arrows in every region,
+not just the first. When the span marks the whole window (e.g.
+`reduction_on_ref=false`, where it's one full range) we fall back to comparing the
+observed consensus against the wild type (`argmax(count) != argmax(reference)`)
+so the entire window isn't arrowed. Returns an empty vector if the consensus is
+unavailable.
+"""
+function motif_wt_regions(meta)
+    regions = WildTypeRegion[]
+    consensus = try
+        meta.config.data.raw_data.consensus
+    catch
+        nothing
+    end
+    consensus === nothing && return regions
+    L = length(consensus)
+    frag = parse_span_positions(meta.span)
+    cmats, refs, pos = meta.count_matrices, meta.references, meta.positions
+    n = min(length(cmats), length(pos))
+    for r in 1:n
+        cmat, startp = cmats[r], pos[r]
+        w = size(cmat, 2)
+        (startp < 1 || startp + w - 1 > L) && continue
+        wt = String(consensus[startp:startp + w - 1])
+        in_frag = Bool[(startp + j - 1) in frag for j in 1:w]
+        mutated = if !isempty(frag) && !all(in_frag)
+            in_frag                              # span pinpoints the regions
+        elseif r <= length(refs)                 # fallback: observed vs wild type
+            ref = refs[r]; rw = min(w, size(ref, 2))
+            flags = Bool[argmax(view(cmat, :, j)) != argmax(view(ref, :, j)) for j in 1:rw]
+            length(flags) < w ? vcat(flags, falses(w - length(flags))) : flags
+        else
+            in_frag
+        end
+        push!(regions, WildTypeRegion(wt, startp, mutated))
+    end
+    return regions
+end
+
+"""
     bin_value(value, lo, hi, bin_count) -> Int
 
 Map `value` to one of `bin_count` equal-width bins spanning `[lo, hi]`, returning
@@ -756,6 +833,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                     float(meta.median), cm, cn, meta.count,
                     display_name, meta.button_text, meta.span, cp,
                     meta.motif_size == 1,
+                    motif_wt_regions(meta),
                     paths.png.rel, paths.influence.rel,
                     joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),
                     collect(String, json_motifs[mode_str][texts_str][1]),
