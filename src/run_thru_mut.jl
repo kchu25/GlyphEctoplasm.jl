@@ -101,10 +101,15 @@ function plot_motifs_mut_case(data, m,
     # Top-movers summary becomes the landing page (index.html). Ranking is the
     # group-less binned lexicographic order; positives/negatives split by sign.
     positives, negatives = select_top_movers(top_movers; n=5, bin_count=bin_count)
+    protein_length = try
+        length(data.raw_data.consensus)
+    catch
+        nothing
+    end
     render_top_movers_page!(save_path;
         positives=positives, negatives=negatives,
         page_title=page_title, nav_page_count=nav_page_count,
-        protein_name=protein_name
+        protein_name=protein_name, protein_length=protein_length
     )
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)

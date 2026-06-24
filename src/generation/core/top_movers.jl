@@ -187,15 +187,25 @@ function render_top_movers_page!(save_path::AbstractString;
         page_title::AbstractString="n/a",
         nav_page_count::Integer=4,
         protein_name::Union{AbstractString,Nothing}=nothing,
+        protein_length::Union{Integer,Nothing}=nothing,
         file::AbstractString="index.html")
 
     mkpath(save_path)
 
-    # Slick protein masthead, shown only when a name is supplied.
-    protein_header = (protein_name === nothing || isempty(strip(protein_name))) ? "" :
-        string("<div class=\"protein-title\">",
-               "<span class=\"protein-title-eyebrow\">Protein</span>",
-               "<span class=\"protein-title-name\">", _tm_esc(protein_name), "</span></div>")
+    # Slick protein masthead: name (when supplied) plus an optional length note.
+    has_name = protein_name !== nothing && !isempty(strip(protein_name))
+    has_len  = protein_length !== nothing
+    protein_header = if !has_name && !has_len
+        ""
+    else
+        name_html = has_name ?
+            string("<span class=\"protein-title-eyebrow\">Protein</span>",
+                   "<span class=\"protein-title-name\">", _tm_esc(protein_name), "</span>") : ""
+        sep_html = (has_name && has_len) ? "<span class=\"protein-title-sep\">·</span>" : ""
+        len_html = has_len ?
+            string("<span class=\"protein-title-meta\">length: ", protein_length, " amino acids</span>") : ""
+        string("<div class=\"protein-title\">", name_html, sep_html, len_html, "</div>")
+    end
 
     # rowid space: positives first, then negatives — matches the JS data array.
     all_rows = vcat(collect(positives), collect(negatives))
