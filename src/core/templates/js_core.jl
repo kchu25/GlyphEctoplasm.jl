@@ -39,8 +39,12 @@ function updateNav() {
         return `<a href="${page}" ${currentPage === page ? 'class="current"' : ''}>${label}</a>`;
     }).join(' &nbsp&nbsp | &nbsp&nbsp ');
 
+    // Prepend the top-movers summary landing page (index.html).
+    const summaryLink = '<a href="index.html">Summary</a>';
+    const fullNav = summaryLink + ' &nbsp&nbsp | &nbsp&nbsp ' + navHtml;
+
     // Note: Readme link removed since page 3 is now "Readme"
-    document.getElementById('nav').innerHTML = navHtml;
+    document.getElementById('nav').innerHTML = fullNav;
 }
 
 window.onload = updateNav;

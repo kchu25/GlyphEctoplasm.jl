@@ -58,6 +58,7 @@ include(joinpath(GENERATION_DIR, "core", "grouping.jl"))
 include(joinpath(GENERATION_DIR, "core", "sorting.jl"))
 include(joinpath(GENERATION_DIR, "core", "file_io.jl"))
 include(joinpath(GENERATION_DIR, "core", "rendering.jl"))
+include(joinpath(GENERATION_DIR, "core", "top_movers.jl"))
 
 # =============================================================================
 # Utilities Module

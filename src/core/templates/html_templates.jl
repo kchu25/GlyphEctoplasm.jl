@@ -873,6 +873,146 @@ html_template_unified = mt"""<!DOCTYPE html>
 """
 
 """
+HTML template for the top-movers summary landing page (index.html).
+
+A self-contained page: a row-by-row list of the strongest positive and negative
+motifs (clickable card + metadata panel) plus an embedded detail modal whose data
+is inlined via `topMoverData` — it loads no `dataN.js`/`scriptsN.js`, so it stays
+decoupled from the grouped page's index conventions.
+
+Mustache variables:
+- `protein_name`: Title displayed in page / browser tab
+- `upto`: Number of numbered nav pages (the "Summary" link is prepended here)
+- `top_mover_data`: JS `const topMoverData = [...]` literal (one object per row)
+- `positive_rows`: pre-rendered HTML for the top positive rows
+- `negative_rows`: pre-rendered HTML for the top negative rows
+"""
+html_template_top_movers = mt"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{{:protein_name}}} - Summary</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <br><br>
+    <div class="wrapper">
+        <div id="nav" style="display: flex; justify-content: center;"></div>
+        <br><br>
+
+        <div class="top-movers-section">
+            <h2 class="top-movers-heading top-movers-heading-pos">Top positive motifs</h2>
+            <div class="top-movers-list">
+                {{{:positive_rows}}}
+            </div>
+        </div>
+
+        <div class="top-movers-section">
+            <h2 class="top-movers-heading top-movers-heading-neg">Top negative motifs</h2>
+            <div class="top-movers-list">
+                {{{:negative_rows}}}
+            </div>
+        </div>
+    </div>
+
+    <!-- Self-contained detail modal (singleton-style layout, reused for every row) -->
+    <div id="singletonModal" class="singleton-modal">
+        <div class="singleton-modal-content">
+            <span class="singleton-close" onclick="closeSingletonModal()">&times;</span>
+            <div class="singleton-modal-body">
+                <div class="singleton-modal-left">
+                    <div class="singleton-modal-influence-container">
+                        <span class="singleton-modal-influence-label">Shapley values</span>
+                        <img id="singletonModalInfluence" src="" alt="Shapley values plot">
+                    </div>
+                    <div class="singleton-modal-info">
+                        <div id="singletonModalText1" class="singleton-info-item"></div>
+                        <div id="singletonModalText2" class="singleton-info-item"></div>
+                        <div id="singletonModalText3" class="singleton-info-item"></div>
+                        <div id="singletonModalText4" class="singleton-info-item"></div>
+                        <div id="singletonModalText5" class="singleton-info-item"></div>
+                        <div id="singletonModalText6" class="singleton-info-item"></div>
+                    </div>
+                </div>
+                <div class="singleton-modal-right">
+                    <div class="singleton-modal-kde-container">
+                        <span class="singleton-modal-kde-label">Indicator Plot</span>
+                        <img id="singletonModalKde" src="" alt="KDE Plot">
+                    </div>
+                    <div class="singleton-modal-img-container">
+                        <img id="singletonModalImg" src="" alt="">
+                    </div>
+                    <h3 id="singletonModalTitle"></h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    {{{:top_mover_data}}}
+
+    // Navigation: "Summary" (this page) first, then the numbered pages.
+    (function () {
+        const upto = {{:upto}};
+        const labels = {1: 'Motif influence', 2: 'Generalization', 3: 'Statistics', 4: 'Readme'};
+        let links = '<a href="index.html" class="current">Summary</a>';
+        for (let n = 1; n <= upto; n++) {
+            links += ' &nbsp&nbsp | &nbsp&nbsp ' +
+                `<a href="index${n}.html">${labels[n] || ('Page ' + n)}</a>`;
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            document.getElementById('nav').innerHTML = links;
+        });
+    })();
+
+    // Self-contained modal: populate directly from topMoverData (no jsonData).
+    let topMoverScroll = 0;
+    function openTopMover(idx) {
+        const d = topMoverData[idx];
+        if (!d) return;
+        topMoverScroll = window.pageYOffset || document.documentElement.scrollTop;
+        document.getElementById('singletonModalImg').src = d.img;
+        document.getElementById('singletonModalImg').alt = d.title;
+        document.getElementById('singletonModalInfluence').src = d.influence;
+        document.getElementById('singletonModalKde').src = d.yy_kde || '';
+        document.getElementById('singletonModalTitle').innerHTML = d.title;
+        for (let t = 1; t <= 6; t++) {
+            document.getElementById('singletonModalText' + t).innerHTML =
+                (d.texts && d.texts[t - 1]) ? d.texts[t - 1] : '';
+        }
+        document.getElementById('singletonModal').style.display = 'block';
+    }
+    function closeSingletonModal() {
+        document.getElementById('singletonModal').style.display = 'none';
+        window.scrollTo(0, topMoverScroll);
+    }
+    window.onclick = function (event) {
+        const modal = document.getElementById('singletonModal');
+        if (event.target === modal) closeSingletonModal();
+    };
+    window.onkeydown = function (event) {
+        if (event.key === 'Escape') closeSingletonModal();
+    };
+
+    // Colored card borders (red positive, blue negative; width scales with |median|).
+    document.addEventListener('DOMContentLoaded', function () {
+        const cards = document.querySelectorAll('.top-mover-card[data-median]');
+        let maxAbs = 0;
+        cards.forEach(c => { maxAbs = Math.max(maxAbs, Math.abs(parseFloat(c.dataset.median) || 0)); });
+        cards.forEach(c => {
+            const v = parseFloat(c.dataset.median) || 0;
+            const color = Math.abs(v) < 0.01 ? 'rgb(200,200,200)' : (v > 0 ? 'rgb(139,0,0)' : 'rgb(0,0,139)');
+            const w = maxAbs > 0 ? (1 + 3 * Math.abs(v) / maxAbs) : 1;
+            c.style.border = w.toFixed(1) + 'px solid ' + color;
+        });
+    });
+    </script>
+</body>
+</html>
+"""
+
+"""
 Hover window template for displaying metadata.
 
 Mustache variables:

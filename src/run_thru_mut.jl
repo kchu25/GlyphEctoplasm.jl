@@ -46,6 +46,9 @@ function plot_motifs_mut_case(data, m,
     json_motifs = init_json_dict()
     html_dict = init_dict_for_html_render()
 
+    # Accumulates one self-contained row per motif for the top-movers landing page.
+    top_movers = TopMoverEntry[]
+
     register_mutation_region_motifs!(
         json_motifs, html_dict, all_metadata;
         start_idx = 1,
@@ -56,7 +59,8 @@ function plot_motifs_mut_case(data, m,
         pts = pts,                         # Per-datapoint preds/labels for indicator plots (nothing => skip)
         all_indices = all_idx,             # Population basis aligned to `pts`
         interaction_summaries = interaction_summaries,  # Per-motif interaction text (string-valued, conv format)
-        nnd_k = nnd_k                      # k for the cluster-tightness (NND) permutation test
+        nnd_k = nnd_k,                     # k for the cluster-tightness (NND) permutation test
+        top_movers_out = top_movers        # Collect summary rows for the landing page
     )
 
     render_and_save_outputs!(json_motifs, html_dict, 1;
@@ -90,6 +94,14 @@ function plot_motifs_mut_case(data, m,
     # Render statistics (index3.html) and readme (index4.html) docs pages
     render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count)
     render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count)
+
+    # Top-movers summary becomes the landing page (index.html). Ranking is the
+    # group-less binned lexicographic order; positives/negatives split by sign.
+    positives, negatives = select_top_movers(top_movers; n=5, bin_count=bin_count)
+    render_top_movers_page!(save_path;
+        positives=positives, negatives=negatives,
+        page_title=page_title, nav_page_count=nav_page_count
+    )
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)
     optimize_pngs && optimize_pngs!(save_path; ncolors=png_colors)

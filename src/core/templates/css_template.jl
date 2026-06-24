@@ -614,6 +614,103 @@ span.putBar {
 
 
 /* ============================================================================
+   TOP-MOVERS SUMMARY PAGE STYLES
+   ============================================================================ */
+
+.top-movers-section {
+    max-width: 760px;
+    margin: 0 auto 32px auto;
+}
+
+.top-movers-heading {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.top-movers-heading-pos { color: #8b0000; }
+.top-movers-heading-neg { color: #00008b; }
+
+.top-movers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px 0;
+}
+
+.top-mover-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+/* Left: clickable card. Reuses the singleton card look; border is set via JS. */
+.top-mover-card {
+    flex: 0 0 150px;
+    width: 150px;
+    height: 60px;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-radius: 6px;
+    overflow: visible;
+    background-color: #ffffff;
+    border: 1px solid #e5e5e5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    position: relative;
+}
+
+.top-mover-card:hover {
+    transform: scale(1.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    z-index: 50;
+}
+
+/* Right: metadata panel. */
+.top-mover-meta {
+    flex: 1 1 auto;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1f2937;
+}
+
+.top-mover-name {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.top-mover-table {
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.top-mover-table td {
+    padding: 1px 10px 1px 0;
+    vertical-align: top;
+}
+
+.top-mover-table td:first-child {
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.top-mover-table td:last-child {
+    font-variant-numeric: tabular-nums;
+}
+
+.top-mover-empty {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 8px 0;
+}
+
+/* ============================================================================
    SINGLETON MODAL STYLES
    ============================================================================ */
 

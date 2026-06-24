@@ -603,7 +603,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         start_idx = 1, sort_globally = true, sort_by_pareto = false,
         sort_by_bins = true, bin_count = 10,
         pts = nothing, all_indices = nothing, interaction_summaries = nothing,
-        nnd_k = 15)
+        nnd_k = 15, top_movers_out = nothing)
 
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -744,6 +744,24 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             )
             
             push!(registered_names, display_name)  # Track registration
+
+            # Collect a self-contained summary row for the top-movers landing page.
+            # Uses data already in scope; cluster median/NND/p come from the (cheap
+            # half of the) NND result, NaN when `pts` wasn't supplied.
+            if top_movers_out !== nothing
+                cm = nnd_result === nothing ? NaN : float(nnd_result.cluster_median)
+                cn = nnd_result === nothing ? NaN : float(nnd_result.obs_mNND)
+                cp = nnd_result === nothing ? NaN : float(nnd_result.p_value)
+                push!(top_movers_out, TopMoverEntry(
+                    float(meta.median), cm, cn, meta.count,
+                    display_name, meta.button_text, meta.span, cp,
+                    meta.motif_size == 1,
+                    paths.png.rel, paths.influence.rel,
+                    joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),
+                    collect(String, json_motifs[mode_str][texts_str][1]),
+                ))
+            end
+
             current_idx += 1
         catch e
             n_failed += 1
