@@ -669,6 +669,11 @@ span.putBar {
     margin: 0 auto 32px auto;
 }
 
+/* First section sits close under the protein masthead (no big <br><br> gap). */
+.top-movers-section:first-of-type {
+    margin-top: 8px;
+}
+
 .top-movers-heading {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 16px;
@@ -737,24 +742,28 @@ span.putBar {
     margin-bottom: 4px;
 }
 
-.top-mover-table {
-    border-collapse: collapse;
-    font-size: 12px;
+/* Epistasis (interaction coefficient) — the single stat shown per row. */
+.top-mover-epistasis {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
-.top-mover-table td {
-    padding: 1px 10px 1px 0;
-    vertical-align: top;
+.top-mover-epistasis-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #9ca3af;
 }
 
-.top-mover-table td:first-child {
-    color: #6b7280;
-    white-space: nowrap;
-}
-
-.top-mover-table td:last-child {
+.top-mover-epistasis-val {
+    font-size: 13px;
+    color: #1f2937;
     font-variant-numeric: tabular-nums;
 }
+
+.top-mover-epi-none { color: #c2c8d0; }
 
 .top-mover-empty {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

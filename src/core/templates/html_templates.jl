@@ -900,7 +900,6 @@ html_template_top_movers = mt"""<!DOCTYPE html>
     <div class="wrapper top-movers-wrapper">
         <div id="nav" style="display: flex; justify-content: center;"></div>
         {{{:protein_header}}}
-        <br><br>
 
         <div class="top-movers-section">
             <h2 class="top-movers-heading top-movers-heading-pos">Top positive motifs</h2>

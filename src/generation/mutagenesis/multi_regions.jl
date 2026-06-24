@@ -833,6 +833,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                     float(meta.median), cm, cn, meta.count,
                     display_name, meta.button_text, meta.span, cp,
                     meta.motif_size == 1,
+                    interaction_str === nothing ? "" : interaction_str,
                     motif_wt_regions(meta),
                     paths.png.rel, paths.influence.rel,
                     joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),

@@ -46,6 +46,7 @@ struct TopMoverEntry
     span::String             # mutation position(s), e.g. "36:45" or "36:45, 50:60"
     nnd_p::Float64           # NND permutation p-value (NaN when unavailable)
     is_singleton::Bool
+    epistasis::String        # interaction-coefficient summary (caller HTML; "" if none)
     # Wild-type region(s): full WT string + per-residue mutation flags (drawn as
     # an amino-acid track with up-arrows under each mutated residue).
     wt_regions::Vector{WildTypeRegion}
@@ -149,10 +150,9 @@ and a metadata table (right). `rowid` is the 0-based index into the page's
 `topMoverData` JS array.
 """
 function top_mover_row_html(e::TopMoverEntry, rowid::Int)
-    fmt(x) = isnan(x) ? "—" : @sprintf("%.3f", x)
-    pval_row = isnan(e.nnd_p) ? "" :
-        "<tr><td>cluster NND p-value</td><td>$(@sprintf("%.3f", e.nnd_p))</td></tr>"
     name = _tm_esc(e.display_name)
+    epi = isempty(strip(e.epistasis)) ?
+        "<span class=\"top-mover-epi-none\">n/a</span>" : e.epistasis
     """
     <div class="top-mover-row">
         <div class="top-mover-card" data-median="$(e.median)" onclick="openTopMover($rowid)">
@@ -161,14 +161,10 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int)
         </div>
         <div class="top-mover-meta">
             <div class="top-mover-name">$name</div>
-            <table class="top-mover-table">
-                <tr><td>Shapley median</td><td>$(fmt(e.median))</td></tr>
-                <tr><td>cluster median</td><td>$(fmt(e.cluster_median))</td></tr>
-                <tr><td>cluster NND</td><td>$(fmt(e.cluster_nnd))</td></tr>
-                $pval_row
-                <tr><td>count</td><td>$(e.count)</td></tr>
-                <tr><td>group</td><td>$(_tm_esc(e.group_label))</td></tr>
-            </table>
+            <div class="top-mover-epistasis">
+                <span class="top-mover-epistasis-label">Epistasis</span>
+                <span class="top-mover-epistasis-val">$epi</span>
+            </div>
         </div>
         <div class="top-mover-wt">$(wt_track_html(e.wt_regions))</div>
     </div>"""
