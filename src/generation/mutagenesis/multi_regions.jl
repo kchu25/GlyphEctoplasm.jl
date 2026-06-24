@@ -487,6 +487,32 @@ function motif_cluster_median(meta, pts, all_indices)
 end
 
 """
+    motif_cluster_nnd(meta, pts, all_indices; nnd_k) -> Float64
+
+Observed within-group mean k-NN distance (`obs_mNND`) of the sequences that
+contain this motif, on the expression axis (`pts.labels`). This is the cheap
+half of `nnd_permutation_test_1d` — only the observed statistic, no null
+permutation loop — so it can be used to bin motifs for sorting before the
+per-motif render loop computes the full (p-valued) NND result. Smaller means a
+tighter cluster. Returns `NaN` when unavailable (`pts`/`all_indices` missing, or
+fewer than two overlapping sequences).
+"""
+function motif_cluster_nnd(meta, pts, all_indices; nnd_k)
+    (pts === nothing || all_indices === nothing) && return NaN
+    try
+        members = Set(intersect(meta.gdf_row.data_pt_index, all_indices))
+        positions = findall(all_indices .∈ Ref(members))
+        length(positions) < 2 && return NaN
+        bg = Vector{Float64}(pts.labels)
+        subpop_vals = sort!([bg[i] for i in positions])
+        k_clamped = min(nnd_k, length(positions) - 1)
+        return mean_knn_within_group_1d(subpop_vals, k_clamped)
+    catch
+        return NaN
+    end
+end
+
+"""
     bin_value(value, lo, hi, bin_count) -> Int
 
 Map `value` to one of `bin_count` equal-width bins spanning `[lo, hi]`, returning
@@ -498,6 +524,17 @@ function bin_value(value::Real, lo::Real, hi::Real, bin_count::Int)
     isnan(value) && return -1
     hi <= lo && return 0
     return clamp(floor(Int, (value - lo) / (hi - lo) * bin_count), 0, bin_count - 1)
+end
+
+"""
+    bin_value_asc(value, lo, hi, bin_count) -> Int
+
+Like `bin_value`, but for keys sorted ascending (low value first): `NaN` maps to
+`bin_count` (one past the last real bin) so missing values still sort last.
+"""
+function bin_value_asc(value::Real, lo::Real, hi::Real, bin_count::Int)
+    b = bin_value(value, lo, hi, bin_count)
+    return b < 0 ? bin_count : b
 end
 
 """
@@ -539,9 +576,10 @@ Save and register collected mutation region motifs.
 
 Default sorting (`sort_by_bins=true`) is a binned lexicographic order:
 1. group: single_region first, then 2_regions, 3_regions, … (keeps the group toggles ordered)
-2. Shapley-median bin (high → low) — `bin_count` equal-width bins over the global range
-3. cluster-median bin (high → low) — median expression of the motif's sequences, same binning
-4. count (high → low), left un-binned
+2. cluster-median bin (high → low) — median expression of the motif's sequences, `bin_count` equal-width bins
+3. cluster-NND bin (low → high) — observed mean k-NN distance of those sequences; tighter clusters first, same binning
+4. Shapley-median bin (high → low) — same binning over the global range
+5. count (high → low), left un-binned
 
 Binning coarsens near-equal continuous values so the next key can break ties
 meaningfully. Set `sort_by_bins=false` to fall back to the older `sort_by_pareto`
@@ -555,7 +593,7 @@ Parameters:
 - `start_idx::Int = 1`: Starting index for mode numbering
 - `sort_globally::Bool = true`: If true, sort motifs globally
 - `sort_by_bins::Bool = true`: If true, use the binned sort described above (takes precedence)
-- `bin_count::Int = 10`: Number of equal-width bins for the Shapley and cluster medians
+- `bin_count::Int = 10`: Number of equal-width bins for the cluster median, cluster NND, and Shapley median
 - `sort_by_pareto::Bool = false`: Fallback Pareto ranking when `sort_by_bins=false`
 
 Returns:
@@ -580,28 +618,32 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         if sort_by_bins
             # Binned lexicographic sort. Group order is primary so the group
             # toggles render single_region → 2_regions → 3_regions → … . Within a
-            # group, continuous values (Shapley median, cluster median) are
-            # coarsened into `bin_count` equal-width bins over their global ranges
-            # and compared bin-by-bin — sorting on raw continuous values draws
-            # meaningless distinctions between near-equal motifs. Count (un-binned)
-            # breaks remaining ties.
+            # group, continuous values (cluster median, cluster NND, Shapley
+            # median) are coarsened into `bin_count` equal-width bins over their
+            # global ranges and compared bin-by-bin — sorting on raw continuous
+            # values draws meaningless distinctions between near-equal motifs.
+            # Count (un-binned) breaks remaining ties.
             augmented = [(
                 meta = m,
                 grp = group_order(m),
-                shap = float(m.median),
                 clus = motif_cluster_median(m, pts, all_indices),
+                nnd = motif_cluster_nnd(m, pts, all_indices; nnd_k = nnd_k),
+                shap = float(m.median),
                 cnt = m.count,
             ) for m in all_metadata]
 
-            shap_finite = [a.shap for a in augmented if !isnan(a.shap)]
             clus_finite = [a.clus for a in augmented if !isnan(a.clus)]
-            shap_lo, shap_hi = isempty(shap_finite) ? (0.0, 0.0) : extrema(shap_finite)
+            nnd_finite = [a.nnd for a in augmented if !isnan(a.nnd)]
+            shap_finite = [a.shap for a in augmented if !isnan(a.shap)]
             clus_lo, clus_hi = isempty(clus_finite) ? (0.0, 0.0) : extrema(clus_finite)
+            nnd_lo, nnd_hi = isempty(nnd_finite) ? (0.0, 0.0) : extrema(nnd_finite)
+            shap_lo, shap_hi = isempty(shap_finite) ? (0.0, 0.0) : extrema(shap_finite)
 
             sort!(augmented, by = a -> (
                 a.grp,                                                  # single_region, then 2,3,4,… regions
+                -bin_value(a.clus, clus_lo, clus_hi, bin_count),        # high cluster median bin first
+                bin_value_asc(a.nnd, nnd_lo, nnd_hi, bin_count),        # low NND bin first (tighter cluster)
                 -bin_value(a.shap, shap_lo, shap_hi, bin_count),        # high Shapley bin first
-                -bin_value(a.clus, clus_lo, clus_hi, bin_count),        # high cluster bin first
                 -a.cnt,                                                 # higher count first
             ))
             all_metadata = [a.meta for a in augmented]
