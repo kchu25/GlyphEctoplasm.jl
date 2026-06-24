@@ -899,6 +899,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
     <br><br>
     <div class="wrapper top-movers-wrapper">
         <div id="nav" style="display: flex; justify-content: center;"></div>
+        {{{:protein_header}}}
         <br><br>
 
         <div class="top-movers-section">
@@ -952,11 +953,11 @@ html_template_top_movers = mt"""<!DOCTYPE html>
     <script>
     {{{:top_mover_data}}}
 
-    // Navigation: "Summary" (this page) first, then the numbered pages.
+    // Navigation: "Top movers" (this page) first, then the numbered pages.
     (function () {
         const upto = {{:upto}};
-        const labels = {1: 'Motif influence', 2: 'Generalization', 3: 'Statistics', 4: 'Readme'};
-        let links = '<a href="index.html" class="current">Summary</a>';
+        const labels = {1: 'Motifs', 2: 'Generalization', 3: 'Statistics', 4: 'Readme'};
+        let links = '<a href="index.html" class="current">Top movers</a>';
         for (let n = 1; n <= upto; n++) {
             links += ' &nbsp&nbsp | &nbsp&nbsp ' +
                 `<a href="index${n}.html">${labels[n] || ('Page ' + n)}</a>`;
@@ -1104,7 +1105,7 @@ html_template_generalization = mt"""<!DOCTYPE html>
         
         const navHtml = availablePages.map(num => {
             const page = 'index' + num + '.html';
-            const label = num === 1 ? 'Motif influence' :
+            const label = num === 1 ? 'Motifs' :
                           num === 2 ? 'Generalization' :
                           num === 3 ? 'Statistics' :
                           num === 4 ? 'Readme' :
@@ -1113,8 +1114,12 @@ html_template_generalization = mt"""<!DOCTYPE html>
             
             return '<a href="' + page + '" ' + (currentPage === page ? 'class="current"' : '') + '>' + label + '</a>';
         }).join(' &nbsp;&nbsp; | &nbsp;&nbsp; ');
-        
-        document.getElementById('nav').innerHTML = navHtml;
+
+        // Prepend the top-movers landing page (index.html) when one exists.
+        const fullNav = ('{{:has_summary}}' === 'true')
+            ? ('<a href="index.html">Top movers</a> &nbsp;&nbsp; | &nbsp;&nbsp; ' + navHtml)
+            : navHtml;
+        document.getElementById('nav').innerHTML = fullNav;
     }
     
     window.onload = updateNav;
@@ -1214,14 +1219,19 @@ html_template_statistics = mt"""<!DOCTYPE html>
         const availablePages = createArray({{:upto}});
         const navHtml = availablePages.map(num => {
             const page = 'index' + num + '.html';
-            const label = num === 1 ? 'Motif influence' :
+            const label = num === 1 ? 'Motifs' :
                           num === 2 ? 'Generalization' :
                           num === 3 ? 'Statistics' :
                           num === 4 ? 'Readme' :
                           num === 5 ? 'Page 5' : 'Page 6';
             return '<a href="' + page + '" ' + (currentPage === page ? 'class="current"' : '') + '>' + label + '</a>';
         }).join(' &nbsp;&nbsp; | &nbsp;&nbsp; ');
-        document.getElementById('nav').innerHTML = navHtml;
+
+        // Prepend the top-movers landing page (index.html) when one exists.
+        const fullNav = ('{{:has_summary}}' === 'true')
+            ? ('<a href="index.html">Top movers</a> &nbsp;&nbsp; | &nbsp;&nbsp; ' + navHtml)
+            : navHtml;
+        document.getElementById('nav').innerHTML = fullNav;
     }
     window.onload = updateNav;
     </script>
@@ -1319,14 +1329,19 @@ html_template_readme = mt"""<!DOCTYPE html>
         const availablePages = createArray({{:upto}});
         const navHtml = availablePages.map(num => {
             const page = 'index' + num + '.html';
-            const label = num === 1 ? 'Motif influence' :
+            const label = num === 1 ? 'Motifs' :
                           num === 2 ? 'Generalization' :
                           num === 3 ? 'Statistics' :
                           num === 4 ? 'Readme' :
                           num === 5 ? 'Page 5' : 'Page 6';
             return '<a href="' + page + '" ' + (currentPage === page ? 'class="current"' : '') + '>' + label + '</a>';
         }).join(' &nbsp;&nbsp; | &nbsp;&nbsp; ');
-        document.getElementById('nav').innerHTML = navHtml;
+
+        // Prepend the top-movers landing page (index.html) when one exists.
+        const fullNav = ('{{:has_summary}}' === 'true')
+            ? ('<a href="index.html">Top movers</a> &nbsp;&nbsp; | &nbsp;&nbsp; ' + navHtml)
+            : navHtml;
+        document.getElementById('nav').innerHTML = fullNav;
     }
     window.onload = updateNav;
     </script>

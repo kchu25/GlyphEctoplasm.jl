@@ -29,7 +29,7 @@ function updateNav() {
 
     const navHtml = availablePages.map(num => {
         const page = `index${num}.html`;
-        const label = num === 1 ? 'Motif influence' :
+        const label = num === 1 ? 'Motifs' :
                       num === 2 ? 'Generalization' :
                       num === 3 ? 'Statistics' :
                       num === 4 ? 'Readme' :
@@ -43,7 +43,7 @@ function updateNav() {
     // pipeline actually produced one (mutagenesis case). Defaults off so the
     // convolution case (no index.html) is unchanged and shows no dead link.
     const fullNav = (typeof window.HAS_SUMMARY !== 'undefined' && window.HAS_SUMMARY)
-        ? ('<a href="index.html">Summary</a> &nbsp&nbsp | &nbsp&nbsp ' + navHtml)
+        ? ('<a href="index.html">Top movers</a> &nbsp&nbsp | &nbsp&nbsp ' + navHtml)
         : navHtml;
 
     // Note: Readme link removed since page 3 is now "Readme"

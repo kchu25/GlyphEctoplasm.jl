@@ -97,18 +97,20 @@ Render the generalization page (index2.html) displaying a centered image.
 function render_generalization_page!(save_path::AbstractString;
         page_title::AbstractString="n/a",
         nav_page_count::Integer=4,
-        image_filename::AbstractString="generalization.png"
+        image_filename::AbstractString="generalization.png",
+        has_summary::Bool=false
         )
-    
+
     # Ensure save_path directory exists
     mkpath(save_path)
-    
+
     # Render HTML using the generalization template
-    html_rendered = Mustache.render(html_template_generalization, 
-        protein_name=page_title, 
-        j=2, 
+    html_rendered = Mustache.render(html_template_generalization,
+        protein_name=page_title,
+        j=2,
         upto=nav_page_count,
-        image_path=image_filename
+        image_path=image_filename,
+        has_summary=has_summary ? "true" : "false"
     )
     
     # Write HTML file
@@ -125,10 +127,12 @@ and NND tests that the motif cards report.
 """
 function render_statistics_page!(save_path::AbstractString;
         page_title::AbstractString="n/a",
-        nav_page_count::Integer=4)
+        nav_page_count::Integer=4,
+        has_summary::Bool=false)
     mkpath(save_path)
     html_rendered = Mustache.render(html_template_statistics,
-        protein_name=page_title, j=3, upto=nav_page_count)
+        protein_name=page_title, j=3, upto=nav_page_count,
+        has_summary=has_summary ? "true" : "false")
     open(joinpath(save_path, "index3.html"), "w") do io
         print(io, html_rendered)
     end
@@ -142,10 +146,12 @@ placeholder for the paper citation.
 """
 function render_readme_page!(save_path::AbstractString;
         page_title::AbstractString="n/a",
-        nav_page_count::Integer=4)
+        nav_page_count::Integer=4,
+        has_summary::Bool=false)
     mkpath(save_path)
     html_rendered = Mustache.render(html_template_readme,
-        protein_name=page_title, j=4, upto=nav_page_count)
+        protein_name=page_title, j=4, upto=nav_page_count,
+        has_summary=has_summary ? "true" : "false")
     open(joinpath(save_path, "index4.html"), "w") do io
         print(io, html_rendered)
     end

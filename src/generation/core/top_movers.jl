@@ -186,9 +186,16 @@ function render_top_movers_page!(save_path::AbstractString;
         negatives::AbstractVector{TopMoverEntry},
         page_title::AbstractString="n/a",
         nav_page_count::Integer=4,
+        protein_name::Union{AbstractString,Nothing}=nothing,
         file::AbstractString="index.html")
 
     mkpath(save_path)
+
+    # Slick protein masthead, shown only when a name is supplied.
+    protein_header = (protein_name === nothing || isempty(strip(protein_name))) ? "" :
+        string("<div class=\"protein-title\">",
+               "<span class=\"protein-title-eyebrow\">Protein</span>",
+               "<span class=\"protein-title-name\">", _tm_esc(protein_name), "</span></div>")
 
     # rowid space: positives first, then negatives — matches the JS data array.
     all_rows = vcat(collect(positives), collect(negatives))
@@ -203,6 +210,7 @@ function render_top_movers_page!(save_path::AbstractString;
 
     html_rendered = Mustache.render(html_template_top_movers;
         protein_name=page_title,
+        protein_header=protein_header,
         upto=nav_page_count,
         top_mover_data=data_js,
         positive_rows=pos_html,

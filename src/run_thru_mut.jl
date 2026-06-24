@@ -6,6 +6,7 @@ function plot_motifs_mut_case(data, m,
         nnd_k=15,
         dpi=65, save_path="tmp2", xlim=(-2,2),
         page_title="Mutation Regions Analysis",
+        protein_name::Union{String,Nothing}=nothing,  # shown atop the summary page when given
         reduction_on_ref=false,
         float_type=Float32,
         use_rna=false,
@@ -88,20 +89,22 @@ function plot_motifs_mut_case(data, m,
         render_generalization_page!(save_path;
             page_title=page_title,
             nav_page_count=nav_page_count,
-            image_filename="generalization.png"
+            image_filename="generalization.png",
+            has_summary=true
         )
     end
 
     # Render statistics (index3.html) and readme (index4.html) docs pages
-    render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count)
-    render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count)
+    render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
+    render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
 
     # Top-movers summary becomes the landing page (index.html). Ranking is the
     # group-less binned lexicographic order; positives/negatives split by sign.
     positives, negatives = select_top_movers(top_movers; n=5, bin_count=bin_count)
     render_top_movers_page!(save_path;
         positives=positives, negatives=negatives,
-        page_title=page_title, nav_page_count=nav_page_count
+        page_title=page_title, nav_page_count=nav_page_count,
+        protein_name=protein_name
     )
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)

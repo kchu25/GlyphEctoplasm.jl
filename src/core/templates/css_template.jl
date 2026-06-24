@@ -624,6 +624,32 @@ span.putBar {
     padding: 0 24px;
 }
 
+/* Slick protein masthead at the top of the summary page. */
+.protein-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    margin: 22px auto 6px auto;
+}
+
+.protein-title-eyebrow {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #9ca3af;
+}
+
+.protein-title-name {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 26px;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    color: #1f2937;
+}
+
 .top-movers-section {
     max-width: 1232px;
     margin: 0 auto 32px auto;
