@@ -693,15 +693,16 @@ span.putBar {
     padding: 14px 0;
 }
 
+/* Fixed grid tracks so the three columns line up vertically across every row. */
 .top-mover-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 150px 1fr 1fr;
     align-items: center;
-    gap: 24px;
+    column-gap: 32px;
 }
 
 /* Left: clickable card. Reuses the singleton card look; border is set via JS. */
 .top-mover-card {
-    flex: 0 0 150px;
     width: 150px;
     height: 60px;
     cursor: pointer;
@@ -723,16 +724,15 @@ span.putBar {
     z-index: 50;
 }
 
-/* Middle: compact metadata panel. */
+/* Middle: epistasis column (grid track 2). */
 .top-mover-meta {
-    flex: 0 0 230px;
+    min-width: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #1f2937;
 }
 
-/* Right: wild-type track fills the remaining horizontal space. */
+/* Right: wild-type track (grid track 3). */
 .top-mover-wt {
-    flex: 1 1 auto;
     min-width: 0;
 }
 
