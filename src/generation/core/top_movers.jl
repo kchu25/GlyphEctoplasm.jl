@@ -44,14 +44,20 @@ end
 
 Split `entries` by the sign of `median` and return the top `n` of each, ordered
 by the group-less binned lexicographic key — the same key the grouped page sorts
-on, minus the region-group component:
+on, minus the region-group component. The two columns are **mirror images** on
+the sign-bearing keys so each leads with its strongest signal:
 
-  cluster-median bin (high → low) → cluster-NND bin (low → high) →
-  Shapley-median bin (high → low) → count (high → low)
+  positives: cluster-median bin (high → low) → cluster-NND bin (low → high) →
+             Shapley-median bin (high → low) → count (high → low)
+  negatives: cluster-median bin (low → high) → cluster-NND bin (low → high) →
+             Shapley-median bin (low → high) → count (high → low)
 
-Continuous keys are coarsened into `bin_count` equal-width bins over the global
-range of `entries` (mirrors the display sort), so near-equal motifs aren't split
-on meaningless differences. Motifs with `median == 0` are dropped.
+So the most positive cluster median sits at the top of the positive column and
+the most negative cluster median at the top of the negative column. The
+NND-tightness (tighter first) and count (higher first) tiebreakers stay the same
+in both. Continuous keys are coarsened into `bin_count` equal-width bins over the
+global range of `entries` (mirrors the display sort), so near-equal motifs aren't
+split on meaningless differences. Motifs with `median == 0` are dropped.
 """
 function select_top_movers(entries::AbstractVector{TopMoverEntry}; n::Int=5, bin_count::Int=10)
     isempty(entries) && return (TopMoverEntry[], TopMoverEntry[])
@@ -63,15 +69,23 @@ function select_top_movers(entries::AbstractVector{TopMoverEntry}; n::Int=5, bin
     nnd_lo,  nnd_hi  = isempty(nnd)  ? (0.0, 0.0) : extrema(nnd)
     shap_lo, shap_hi = isempty(shap) ? (0.0, 0.0) : extrema(shap)
 
-    keyfn(e) = (
+    # Positives: strongest (highest) cluster median / Shapley first.
+    pos_key(e) = (
         -bin_value(e.cluster_median, clus_lo, clus_hi, bin_count),   # high cluster median first
         bin_value_asc(e.cluster_nnd, nnd_lo, nnd_hi, bin_count),     # low NND (tighter) first
         -bin_value(e.median, shap_lo, shap_hi, bin_count),           # high Shapley first
         -e.count,                                                    # higher count first
     )
-    ordered = sort(entries, by = keyfn)
-    positives = [e for e in ordered if e.median > 0]
-    negatives = [e for e in ordered if e.median < 0]
+    # Negatives: mirror — most negative (lowest) cluster median / Shapley first.
+    # `bin_value_asc` puts low bins first and keeps NaN last.
+    neg_key(e) = (
+        bin_value_asc(e.cluster_median, clus_lo, clus_hi, bin_count), # low cluster median first
+        bin_value_asc(e.cluster_nnd, nnd_lo, nnd_hi, bin_count),      # low NND (tighter) first
+        bin_value_asc(e.median, shap_lo, shap_hi, bin_count),         # low Shapley first
+        -e.count,                                                     # higher count first
+    )
+    positives = sort([e for e in entries if e.median > 0], by = pos_key)
+    negatives = sort([e for e in entries if e.median < 0], by = neg_key)
     return (first(positives, n), first(negatives, n))
 end
 
