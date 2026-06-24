@@ -111,6 +111,28 @@ end
 _tm_esc(s) = replace(string(s), "&" => "&amp;", "<" => "&lt;", ">" => "&gt;")
 
 """
+    parse_epistasis(s) -> (coef, pval)
+
+Pull the interaction coefficient and p-value out of a caller-built epistasis
+string such as `"β_interaction: +0.64, se: 0.0172, p-value: 1.60e-268"`. HTML
+tags are stripped first. Returns `(coef::String|nothing, pval::String|nothing)`;
+the coefficient is returned with an explicit leading sign. When the coefficient
+can't be found the caller should fall back to showing the original string.
+"""
+function parse_epistasis(s::AbstractString)
+    txt = replace(string(s), r"<[^>]*>" => "")
+    num = raw"([+-]?\d*\.?\d+(?:[eE][+-]?\d+)?)"
+    cm = match(Regex("interaction\\s*:?\\s*" * num), txt)
+    pm = match(Regex("p[-\\s]?value\\s*:?\\s*" * num), txt)
+    coef = cm === nothing ? nothing : String(cm.captures[1])
+    pval = pm === nothing ? nothing : String(pm.captures[1])
+    if coef !== nothing && !startswith(coef, "+") && !startswith(coef, "-")
+        coef = "+" * coef
+    end
+    return (coef, pval)
+end
+
+"""
     wt_track_html(regions) -> String
 
 Render the wild-type amino-acid track(s): one row per region — a small span label
@@ -151,8 +173,17 @@ and a metadata table (right). `rowid` is the 0-based index into the page's
 """
 function top_mover_row_html(e::TopMoverEntry, rowid::Int)
     name = _tm_esc(e.display_name)
-    epi = isempty(strip(e.epistasis)) ?
-        "<span class=\"top-mover-epi-none\">n/a</span>" : e.epistasis
+    epi = if isempty(strip(e.epistasis))
+        "<div class=\"epi-line epi-none\">epistasis: n/a</div>"
+    else
+        coef, pval = parse_epistasis(e.epistasis)
+        if coef === nothing
+            "<div class=\"epi-line\">$(e.epistasis)</div>"   # unknown format: show as-is
+        else
+            pv = pval === nothing ? "" : "<div class=\"epi-line epi-sub\">p-value: $(pval)</div>"
+            "<div class=\"epi-line\">epistasis: <strong>$(coef)</strong></div>$pv"
+        end
+    end
     """
     <div class="top-mover-row">
         <div class="top-mover-card" data-median="$(e.median)" onclick="openTopMover($rowid)">
@@ -161,10 +192,7 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int)
         </div>
         <div class="top-mover-meta">
             <div class="top-mover-name">$name</div>
-            <div class="top-mover-epistasis">
-                <span class="top-mover-epistasis-label">Epistasis</span>
-                <span class="top-mover-epistasis-val">$epi</span>
-            </div>
+            <div class="top-mover-epistasis">$epi</div>
         </div>
         <div class="top-mover-wt">$(wt_track_html(e.wt_regions))</div>
     </div>"""

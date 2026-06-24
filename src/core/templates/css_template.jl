@@ -742,28 +742,31 @@ span.putBar {
     margin-bottom: 4px;
 }
 
-/* Epistasis (interaction coefficient) — the single stat shown per row. */
+/* Epistasis (interaction coefficient) — two compact dark-gray lines per row. */
 .top-mover-epistasis {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
+    margin-top: 2px;
 }
 
-.top-mover-epistasis-label {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    color: #9ca3af;
-}
-
-.top-mover-epistasis-val {
-    font-size: 13px;
-    color: #1f2937;
+.epi-line {
+    font-size: 12px;
+    color: #4b5563;                 /* dark gray */
     font-variant-numeric: tabular-nums;
 }
 
-.top-mover-epi-none { color: #c2c8d0; }
+.epi-line strong {
+    color: #374151;                 /* slightly darker for the coefficient */
+    font-weight: 600;
+}
+
+.epi-sub {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.epi-none { color: #9ca3af; }
 
 .top-mover-empty {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
