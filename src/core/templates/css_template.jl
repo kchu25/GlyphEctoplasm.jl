@@ -620,7 +620,7 @@ span.putBar {
 /* Summary page uses more of the viewport than the grouped page's wrapper. */
 .top-movers-wrapper {
     width: 90%;
-    max-width: 1280px;
+    max-width: 1130px;          /* match the narrower section so the right void shrinks */
     padding: 0 24px;
 }
 
@@ -665,7 +665,7 @@ span.putBar {
 }
 
 .top-movers-section {
-    max-width: 1232px;
+    max-width: 1080px;          /* fit the content; trims empty space on the right */
     margin: 0 auto 32px auto;
 }
 
@@ -693,12 +693,14 @@ span.putBar {
     padding: 14px 0;
 }
 
-/* Fixed grid tracks so the three columns line up vertically across every row. */
+/* Fixed grid tracks so the three columns line up vertically across every row.
+   Track 2 is sized to fit the name/epistasis so the WT track starts right after
+   it (no big gap); track 3 takes the remaining width. */
 .top-mover-row {
     display: grid;
-    grid-template-columns: 150px 1fr 1fr;
+    grid-template-columns: 190px 200px 1fr;   /* card track (190) > card image (150) widens card→epistasis gap */
     align-items: center;
-    column-gap: 32px;
+    column-gap: 28px;
 }
 
 /* Left: clickable card. Reuses the singleton card look; border is set via JS. */
