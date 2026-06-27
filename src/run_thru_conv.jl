@@ -24,6 +24,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         rna=false,
         sensitivity_analysis::Bool=false,
         dataset_name::Union{String,Nothing}=nothing,
+        protein_name::Union{String,Nothing}=nothing,  # shown atop the summary page when given
         optimize_pngs::Bool=true,
         png_colors::Int=64
         );
@@ -51,8 +52,12 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     json_motifs = init_json_dict()
     html_dict = init_dict_for_html_render()
 
+    # Accumulates one self-contained row per motif for the top-movers landing page.
+    top_movers = TopMoverEntry[]
+
     next_idx, sorted_mapping = process_singletons!(
-        contributions_df_filtered_singletons, all_indices, pts, config, json_motifs, html_dict; start_idx=1, rna=rna)
+        contributions_df_filtered_singletons, all_indices, pts, config, json_motifs, html_dict;
+        start_idx=1, rna=rna, top_movers_out=top_movers)
 
     # Remap filter indices in multi-motif DataFrames to use sorted order
     remap_filter_indices!(dfs, sorted_mapping, motif_sizes)
@@ -67,10 +72,11 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         @info "Processing multi-motifs of size: $(motif_size)"
         interaction_summary = remapped_interaction_summaries === nothing ? nothing : remapped_interaction_summaries[index]
         @time next_idx = process_multi_motifs!(dfs, all_indices, pts,
-            config, json_motifs, html_dict;             
+            config, json_motifs, html_dict;
                 interaction_summary=interaction_summary,
-                motif_size=motif_size, group_id=group_id, 
-                button_text=button_text, start_idx=next_idx, rna=rna                
+                motif_size=motif_size, group_id=group_id,
+                button_text=button_text, start_idx=next_idx, rna=rna,
+                top_movers_out=top_movers
                 )
     end
 
@@ -87,15 +93,16 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     render_generalization_page!(save_path;
         page_title=page_title,
         nav_page_count=nav_page_count,
-        image_filename="generalization.png"
+        image_filename="generalization.png",
+        has_summary=true
     )
 
     # Render statistics (index3.html) and readme (index4.html) docs pages
-    render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count)
-    render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count)
+    render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
+    render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
 
-    render_and_save_outputs!(json_motifs, html_dict, 1; 
-        html_template=html_template_unified, 
+    render_and_save_outputs!(json_motifs, html_dict, 1;
+        html_template=html_template_unified,
         script_template=script_template,
         css_template=template_css,
         nav_page_count=nav_page_count,
@@ -103,8 +110,23 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         page_title=page_title,
         save_path=save_path,
         enable_colored_borders = enable_colored_borders,
-        use_unified=use_unified
+        use_unified=use_unified,
+        has_summary=true                  # Show the Summary (top-movers) nav link
         )
+
+    # Top-movers summary becomes the landing page (index.html). Ranking is the
+    # group-less binned lexicographic order; positives/negatives split by sign.
+    positives, negatives = select_top_movers(top_movers; n=5)
+    protein_length = try
+        length(data.raw_data.consensus)
+    catch
+        nothing
+    end
+    render_top_movers_page!(save_path;
+        positives=positives, negatives=negatives,
+        page_title=page_title, nav_page_count=nav_page_count,
+        protein_name=protein_name, protein_length=protein_length
+    )
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)
     optimize_pngs && optimize_pngs!(save_path; ncolors=png_colors)

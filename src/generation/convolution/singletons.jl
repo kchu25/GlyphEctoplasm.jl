@@ -10,9 +10,10 @@ Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 """
 function process_and_register_singleton!(all_indices, pts, json_motifs, html_dict, idx, k, pfm, gdf_row,      config::ConvMotifConfig;
         save_folder, motif_type, median_val, count_val, banzhafs,
-        mode_prefix="mode_", group_id="", button_text="Singleton Motifs", 
+        mode_prefix="mode_", group_id="", button_text="Singleton Motifs",
         rna=false, is_significant::Bool=true,
-        display_index::Union{Int, Nothing}=nothing
+        display_index::Union{Int, Nothing}=nothing,
+        top_movers_out::Union{Vector{TopMoverEntry}, Nothing}=nothing
         )
 
     # Use display_index for labels/filenames if provided, otherwise use original k.filter_index
@@ -41,19 +42,47 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
 
     # ————— NND Permutation Test (k=5) ————————
     subpop_pos = findall(is_in_intersect)
-    nnd_result = nnd_permutation_test_1d(subpop_pos, pts.labels)
+    nnd_base = nnd_permutation_test_1d(subpop_pos, pts.labels)
+    # Cluster median: where the motif's sequences sit on the expression axis
+    # (median of their raw expression labels). Augmented onto the NND result so it
+    # shows on the card and ranks the top-movers page, matching the mutation case.
+    cluster_median = any(is_in_intersect) ? median(@view pts.labels[is_in_intersect]) : NaN
+    nnd_result = (; nnd_base..., cluster_median)
 
     # ——————————————————————————————————— end —————————————————————————————————————
 
     # Build metadata texts
-    texts = build_metadata_texts(pfm, paths, median_val, count_val; 
-                                use_rna=config.use_rna, relaxed_median=nothing, 
+    texts = build_metadata_texts(pfm, paths, median_val, count_val;
+                                use_rna=config.use_rna, relaxed_median=nothing,
                                 nnd_result=nnd_result)
-    
+
     mode_str = mode_prefix * string(idx)
     label = "motif $(shown_index)"
     filter_indices_str = string(shown_index)
     add_motif_entry!(json_motifs, html_dict, mode_str, paths.png.rel, label, texts, idx, filter_indices_str, median_val, group_id, button_text; is_significant=is_significant)
+
+    # Collect a self-contained summary row for the top-movers landing page.
+    # Convolution motifs have no mutation span or wild-type track, so those
+    # fields are left empty; ranking keys come from the median/NND just computed.
+    if top_movers_out !== nothing
+        push!(top_movers_out, TopMoverEntry(
+            float(median_val),                  # Shapley median
+            float(cluster_median),              # cluster_median
+            float(nnd_result.obs_mNND),         # cluster_nnd
+            count_val,                          # count
+            label,                              # display_name
+            button_text,                        # group_label
+            "",                                 # span (n/a for convolution)
+            float(nnd_result.p_value),          # nnd_p
+            true,                               # is_singleton
+            "",                                 # epistasis (none for singletons)
+            WildTypeRegion[],                   # wt_regions (n/a for convolution)
+            paths.png.rel,                      # img (motif logo)
+            paths.influence.rel,                # influence plot
+            joinpath(motif_type, "yy_kde_intersect_$shown_index.png"),  # yy_kde
+            collect(String, texts),             # texts
+        ))
+    end
 end
 
 """
@@ -93,7 +122,8 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
         pareto_rank = nothing,
         rna=false,
         get_sorted_mapping_only=false,
-        mark_insignificant::Bool=false
+        mark_insignificant::Bool=false,
+        top_movers_out::Union{Vector{TopMoverEntry}, Nothing}=nothing
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
     mkpath(save_folder)
@@ -137,7 +167,7 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
             mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna,
-            is_significant=is_significant, display_index=i)
+            is_significant=is_significant, display_index=i, top_movers_out=top_movers_out)
     end
     
     # Remap filter_index column in contributions_df to use sorted order (after processing)

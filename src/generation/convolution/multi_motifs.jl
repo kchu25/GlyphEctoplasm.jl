@@ -107,7 +107,8 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         group_id::String = "",
         button_text::String = "Multi-Motifs",
         start_idx::Int = 1,
-        rna=false
+        rna=false,
+        top_movers_out::Union{Vector{TopMoverEntry}, Nothing}=nothing
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
     df_idx = motif_size - 1
@@ -155,7 +156,12 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
 
         # ————— NND Permutation Test (k=5) ————————
         subpop_pos = findall(is_in_intersect)
-        nnd_result = nnd_permutation_test_1d(subpop_pos, pts.labels)
+        nnd_base = nnd_permutation_test_1d(subpop_pos, pts.labels)
+        # Cluster median (median expression of the motif's sequences): augmented
+        # onto the NND result so it shows on the card and ranks the top-movers
+        # page, matching the mutation case.
+        cluster_median = any(is_in_intersect) ? median(@view pts.labels[is_in_intersect]) : NaN
+        nnd_result = (; nnd_base..., cluster_median)
 
         # ——————————————————————— process d_syms variants ————————————————————————————
         gdf_by_dsyms = groupby(gdf_by_msyms[k], build_grouping_columns(:distances; motif_size=motif_size))
@@ -196,6 +202,32 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         # Populate HTML dict with first variant
         filter_indices_str = get_filter_indices_str(k)
         populate_html_dict!(html_dict, idx, json_motifs[mode_str], filter_indices_str, relaxed_median_val, group_id, button_text)
+
+        # Collect a self-contained summary row for the top-movers landing page.
+        # Uses the first displayed distance variant's logo/influence as the card,
+        # the relaxed median for ranking, and the per-motif interaction summary as
+        # the epistasis line. Convolution motifs carry no wild-type track.
+        if top_movers_out !== nothing
+            first_paths = build_motif_paths(
+                get_d_str(selected_dkeys[1]), save_folder_motif, joinpath(motif_type, k_mode_str))
+            push!(top_movers_out, TopMoverEntry(
+                float(relaxed_median_val),          # Shapley median
+                float(cluster_median),              # cluster_median
+                float(nnd_result.obs_mNND),         # cluster_nnd
+                length(list_of_banzhafs[k]),        # count
+                filter_indices_str,                 # display_name
+                button_text,                        # group_label
+                "",                                 # span (n/a for convolution)
+                float(nnd_result.p_value),          # nnd_p
+                false,                              # is_singleton
+                interaction_summary_mode_str === nothing ? "" : interaction_summary_mode_str,  # epistasis
+                WildTypeRegion[],                   # wt_regions (n/a for convolution)
+                first_paths.png.rel,                # img (first variant logo)
+                first_paths.influence.rel,          # influence plot
+                joinpath(motif_type, k_mode_str, "yy_kde_intersect.png"),  # yy_kde
+                collect(String, json_motifs[mode_str][texts_str][1]),       # texts
+            ))
+        end
     end
     
     return start_idx + processed_count
