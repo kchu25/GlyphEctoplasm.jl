@@ -724,11 +724,14 @@ span.putBar {
     z-index: 50;
 }
 
-/* Right: info column (grid track 2) — header, stat strip, optional epi/WT. */
+/* Right: info column (grid track 2) — header, stat strip, optional epi/WT.
+   Content is centered within the track for a balanced row. */
 .top-mover-info {
     min-width: 0;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    text-align: center;
     gap: 8px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #1f2937;
@@ -742,13 +745,14 @@ span.putBar {
 .top-mover-head {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     flex-wrap: wrap;
 }
 
 .top-mover-group-badge {
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: #475569;
@@ -760,21 +764,23 @@ span.putBar {
 
 .top-mover-name {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     color: #334155;
     font-variant-numeric: tabular-nums;
 }
 
-/* Labeled stat strip that fills the row width. */
+/* Labeled stat strip, centered within the row. */
 .top-mover-stats {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 8px;
 }
 
 .tm-chip {
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 2px;
     padding: 6px 12px;
     background: #f8fafc;
@@ -784,7 +790,7 @@ span.putBar {
 
 .tm-chip-label {
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: 0.03em;
     text-transform: uppercase;
     color: #94a3b8;
