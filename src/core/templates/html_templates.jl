@@ -950,6 +950,48 @@ html_template_top_movers = mt"""<!DOCTYPE html>
         </div>
     </div>
 
+    <!-- Multi-motif detail modal (for top movers that span several inter-motif
+         distances). Mirrors the grouped Motifs page: a slider scrolls through the
+         distance variants. Reused for every multi-motif row. -->
+    <div id="multiMotifModal" class="multi-modal">
+        <div class="multi-modal-content">
+            <span class="multi-close" onclick="closeMultiMotifModal()">&times;</span>
+            <div class="multi-modal-body">
+                <div class="multi-modal-left">
+                    <div class="multi-modal-influence-container">
+                        <span class="multi-modal-influence-label">Fixed Distance Shapley values</span>
+                        <img id="multiMotifInfluenceFixed" src="" alt="Fixed Distance Shapley values">
+                    </div>
+                    <div class="multi-modal-influence-container">
+                        <span class="multi-modal-influence-label">Relaxed Distance Shapley values</span>
+                        <img id="multiMotifInfluenceRelaxed" src="" alt="Relaxed Distance Shapley values">
+                    </div>
+                    <div class="multi-modal-info">
+                        <div id="multiMotifText1" class="multi-info-item"></div>
+                        <div id="multiMotifText2" class="multi-info-item"></div>
+                        <div id="multiMotifText3" class="multi-info-item"></div>
+                        <div id="multiMotifText4" class="multi-info-item"></div>
+                        <div id="multiMotifText5" class="multi-info-item"></div>
+                        <div id="multiMotifText6" class="multi-info-item"></div>
+                    </div>
+                </div>
+                <div class="multi-modal-right">
+                    <div class="multi-modal-kde-container">
+                        <span class="multi-modal-kde-label">Indicator Plot</span>
+                        <img id="multiMotifKde" src="" alt="KDE Plot">
+                    </div>
+                    <div class="multi-modal-img-container">
+                        <img id="multiMotifImage" src="" alt="Motif Image">
+                    </div>
+                    <div class="multi-modal-slider">
+                        <input id="multiMotifSlider" type="range" min="0" max="100" value="0">
+                        <span id="multiMotifRangeLabel" class="multi-modal-slider-label">Position: 0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
     {{{:top_mover_data}}}
 
@@ -973,6 +1015,11 @@ html_template_top_movers = mt"""<!DOCTYPE html>
         const d = topMoverData[idx];
         if (!d) return;
         topMoverScroll = window.pageYOffset || document.documentElement.scrollTop;
+        // Multi-motif rows carry per-distance variants: open the slider modal.
+        if (d.variant_pwms && d.variant_pwms.length > 0) {
+            openTopMoverMulti(d);
+            return;
+        }
         document.getElementById('singletonModalImg').src = d.img;
         document.getElementById('singletonModalImg').alt = d.title;
         document.getElementById('singletonModalInfluence').src = d.influence;
@@ -988,12 +1035,58 @@ html_template_top_movers = mt"""<!DOCTYPE html>
         document.getElementById('singletonModal').style.display = 'none';
         window.scrollTo(0, topMoverScroll);
     }
+
+    // Multi-motif popup with an inter-motif-distance slider. Mirrors
+    // updateMultiModalContent() from the grouped Motifs page, but reads from the
+    // row's own payload (no shared multiModalData / index map needed).
+    function openTopMoverMulti(d) {
+        const images = d.variant_pwms || [];
+        const labels = d.variant_labels || [];
+        const texts = d.variant_texts || [];
+        // Base folder for the per-motif (slider-independent) plots, derived from
+        // the first variant's logo path: "pair_motifs/2_112/0.png" -> "pair_motifs/2_112".
+        const firstImage = images[0] || '';
+        const lastSlash = firstImage.lastIndexOf('/');
+        const baseFolder = lastSlash >= 0 ? firstImage.substring(0, lastSlash) : '';
+
+        updateTopMoverMulti(0, images, labels, texts, baseFolder, d.title);
+
+        const slider = document.getElementById('multiMotifSlider');
+        slider.max = Math.max(0, images.length - 1);
+        slider.value = 0;
+        const sliderContainer = document.querySelector('.multi-modal-slider');
+        sliderContainer.style.display = images.length <= 1 ? 'none' : 'flex';
+        slider.oninput = function () {
+            updateTopMoverMulti(parseInt(this.value), images, labels, texts, baseFolder, d.title);
+        };
+        document.getElementById('multiMotifModal').style.display = 'block';
+    }
+    function updateTopMoverMulti(v, images, labels, texts, baseFolder, title) {
+        document.getElementById('multiMotifImage').src = images[v] || '';
+        let titleText = (labels[v] || '').trim().replace(/ are /g, ': ');
+        const t = texts[v] || [];
+        for (let i = 1; i <= 6; i++) {
+            document.getElementById('multiMotifText' + i).innerHTML = t[i - 1] || '';
+        }
+        document.getElementById('multiMotifRangeLabel').innerHTML = titleText || title || '';
+        document.getElementById('multiMotifInfluenceFixed').src =
+            (images[v] || '').replace('.png', '_influence.png');
+        document.getElementById('multiMotifInfluenceRelaxed').src = baseFolder + '/influence_relaxed.png';
+        document.getElementById('multiMotifKde').src = baseFolder + '/yy_kde_intersect.png';
+    }
+    function closeMultiMotifModal() {
+        document.getElementById('multiMotifModal').style.display = 'none';
+        window.scrollTo(0, topMoverScroll);
+    }
+
     window.onclick = function (event) {
         const modal = document.getElementById('singletonModal');
         if (event.target === modal) closeSingletonModal();
+        const multiModal = document.getElementById('multiMotifModal');
+        if (event.target === multiModal) closeMultiMotifModal();
     };
     window.onkeydown = function (event) {
-        if (event.key === 'Escape') closeSingletonModal();
+        if (event.key === 'Escape') { closeSingletonModal(); closeMultiMotifModal(); }
     };
 
     // Colored card borders (red positive, blue negative; width scales with |median|).

@@ -55,6 +55,12 @@ struct TopMoverEntry
     influence::String        # Shapley/influence plot
     yy_kde::String           # indicator (yy-KDE) plot
     texts::Vector{String}    # metadata text fields (rendered as HTML in the modal)
+    # Multi-motif distance variants (empty for singletons). When non-empty the
+    # detail popup shows the multi-motif modal with an inter-motif-distance slider
+    # instead of the static singleton modal, mirroring the grouped Motifs page.
+    variant_pwms::Vector{String}            # per-variant logo paths (one per distance)
+    variant_labels::Vector{String}          # per-variant distance labels
+    variant_texts::Vector{Vector{String}}   # per-variant metadata text fields
 end
 
 """
@@ -226,7 +232,7 @@ function render_top_movers_page!(save_path::AbstractString;
     # whose overlay scrolls at the page level; `modal_scroll_fix` adds a popup-local
     # scrollbar so tall content is reachable without scrolling the dimmed backdrop.
     extra_head = modal_scroll_fix ?
-        "<style>#singletonModal .singleton-modal-content{max-height:90vh;overflow-y:auto;}</style>" : ""
+        "<style>#singletonModal .singleton-modal-content,#multiMotifModal .multi-modal-content{max-height:90vh;overflow-y:auto;}</style>" : ""
 
     # Slick protein masthead: name (when supplied) plus an optional length note.
     has_name = protein_name !== nothing && !isempty(strip(protein_name))
@@ -246,7 +252,9 @@ function render_top_movers_page!(save_path::AbstractString;
     # rowid space: positives first, then negatives — matches the JS data array.
     all_rows = vcat(collect(positives), collect(negatives))
     payload = [(img=e.img, influence=e.influence, yy_kde=e.yy_kde,
-                title=e.display_name, texts=e.texts) for e in all_rows]
+                title=e.display_name, texts=e.texts,
+                variant_pwms=e.variant_pwms, variant_labels=e.variant_labels,
+                variant_texts=e.variant_texts) for e in all_rows]
     data_js = "const topMoverData = " * JSON3.write(payload) * ";"
 
     pos_html = isempty(positives) ? "<p class=\"top-mover-empty\">No positive motifs.</p>" :

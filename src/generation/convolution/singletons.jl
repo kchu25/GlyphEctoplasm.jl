@@ -81,6 +81,9 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
             paths.influence.rel,                # influence plot
             joinpath(motif_type, "yy_kde_intersect_$shown_index.png"),  # yy_kde
             collect(String, texts),             # texts
+            String[],                           # variant_pwms (singleton: no slider)
+            String[],                           # variant_labels
+            Vector{String}[],                   # variant_texts
         ))
     end
 end

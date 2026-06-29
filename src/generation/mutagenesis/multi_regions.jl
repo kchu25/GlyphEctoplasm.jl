@@ -838,6 +838,10 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                     paths.png.rel, paths.influence.rel,
                     joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),
                     collect(String, json_motifs[mode_str][texts_str][1]),
+                    # No slider here: the mutagenesis page uses a different file
+                    # layout (per-file yy_kde, no base-folder relaxed plot), so its
+                    # popup keeps the static singleton modal. (Conv case opts in.)
+                    String[], String[], Vector{String}[],
                 ))
             end
 

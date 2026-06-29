@@ -226,6 +226,10 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
                 first_paths.influence.rel,          # influence plot
                 joinpath(motif_type, k_mode_str, "yy_kde_intersect.png"),  # yy_kde
                 collect(String, json_motifs[mode_str][texts_str][1]),       # texts
+                # Full distance-variant payload so the popup gets a slider.
+                collect(String, json_motifs[mode_str][pwms_str]),           # variant_pwms
+                collect(String, json_motifs[mode_str][labels_str]),         # variant_labels
+                [collect(String, t) for t in json_motifs[mode_str][texts_str]],  # variant_texts
             ))
         end
     end
