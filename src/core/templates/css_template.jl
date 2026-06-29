@@ -693,12 +693,10 @@ span.putBar {
     padding: 14px 0;
 }
 
-/* Fixed grid tracks so the three columns line up vertically across every row.
-   Track 2 is sized to fit the name/epistasis so the WT track starts right after
-   it (no big gap); track 3 takes the remaining width. */
+/* Two tracks: the clickable card, then an info column that fills the row. */
 .top-mover-row {
     display: grid;
-    grid-template-columns: 190px 200px 1fr;   /* card track (190) > card image (150) widens card→epistasis gap */
+    grid-template-columns: 190px 1fr;   /* card track (190) > card image (150) widens card→info gap */
     align-items: center;
     column-gap: 28px;
 }
@@ -726,23 +724,89 @@ span.putBar {
     z-index: 50;
 }
 
-/* Middle: epistasis column (grid track 2). */
-.top-mover-meta {
+/* Right: info column (grid track 2) — header, stat strip, optional epi/WT. */
+.top-mover-info {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #1f2937;
 }
 
-/* Right: wild-type track (grid track 3). */
 .top-mover-wt {
     min-width: 0;
+}
+
+/* Header row: group badge + filter-index name. */
+.top-mover-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.top-mover-group-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #475569;
+    background: #eef2f7;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
 }
 
 .top-mover-name {
     font-size: 13px;
     font-weight: 600;
-    margin-bottom: 4px;
+    color: #334155;
+    font-variant-numeric: tabular-nums;
 }
+
+/* Labeled stat strip that fills the row width. */
+.top-mover-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tm-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 12px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    border-radius: 8px;
+}
+
+.tm-chip-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+
+.tm-chip-val {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tm-chip-sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: #94a3b8;
+}
+
+.tm-chip-val .tm-pos { color: #8b0000; }   /* positive Shapley — matches card border */
+.tm-chip-val .tm-neg { color: #00008b; }   /* negative Shapley */
 
 /* Epistasis (interaction coefficient) — two compact dark-gray lines per row. */
 .top-mover-epistasis {

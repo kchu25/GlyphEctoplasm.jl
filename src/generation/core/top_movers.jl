@@ -170,15 +170,60 @@ function wt_track_html(regions::AbstractVector{WildTypeRegion})
     return "<div class=\"wt-block\">" * join(region_html, "\n") * "</div>"
 end
 
+# Format a numeric stat for the summary chips: "—" for NaN, optional leading
+# "+" so positive Shapley values read as gains.
+function _tm_num(x::Real; signed::Bool=false, digits::Int=2)
+    isnan(x) && return "—"
+    s = string(round(x; digits=digits))
+    (signed && x > 0) ? "+" * s : s
+end
+
+# Compact p-value: blank when unavailable, "<0.001" below the floor.
+_tm_pval(p::Real) = isnan(p) ? "" : (p < 0.001 ? "&lt;0.001" : string(round(p; digits=3)))
+
+# One labeled stat chip (small caps label over a bold value).
+_tm_chip(label::AbstractString, value::AbstractString) = string(
+    "<div class=\"tm-chip\"><span class=\"tm-chip-label\">", label,
+    "</span><span class=\"tm-chip-val\">", value, "</span></div>")
+
+"""
+    stats_chips_html(entry) -> String
+
+Render the right-hand stat strip from the entry's metadata: Shapley median
+(sign-colored), expression median, mean NND (with NND p-value when available),
+mutation position (when present), and sequence count.
+"""
+function stats_chips_html(e::TopMoverEntry)
+    mcls = e.median > 0 ? "tm-pos" : (e.median < 0 ? "tm-neg" : "")
+    mval = "<span class=\"$mcls\">$(_tm_num(e.median; signed=true))</span>"
+
+    nnd_val = _tm_num(e.cluster_nnd)
+    pstr = _tm_pval(e.nnd_p)
+    if nnd_val != "—" && !isempty(pstr)
+        nnd_val = string(nnd_val, " <span class=\"tm-chip-sub\">p ", pstr, "</span>")
+    end
+
+    chips = String[
+        _tm_chip("Shapley median", mval),
+        _tm_chip("Expression median", _tm_num(e.cluster_median)),
+        _tm_chip("Mean NND", nnd_val),
+    ]
+    isempty(strip(e.span)) || push!(chips, _tm_chip("Position", _tm_esc(e.span)))
+    push!(chips, _tm_chip("Count", string(e.count)))
+    return "<div class=\"top-mover-stats\">" * join(chips) * "</div>"
+end
+
 """
     top_mover_row_html(entry, rowid) -> String
 
 Render one summary row: a clickable card (left) wired to `openTopMover(rowid)`
-and a metadata table (right). `rowid` is the 0-based index into the page's
-`topMoverData` JS array.
+and an info column (right) holding a group badge + name, a labeled stat strip,
+and — when present — the epistasis line and wild-type track. `rowid` is the
+0-based index into the page's `topMoverData` JS array.
 """
 function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=true)
     name = _tm_esc(e.display_name)
+    group = _tm_esc(e.group_label)
     epi_block = if !show_epistasis
         ""                                          # caller opted out (e.g. convolution case)
     else
@@ -195,16 +240,19 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=t
         end
         "\n            <div class=\"top-mover-epistasis\">$epi</div>"
     end
+    wt = wt_track_html(e.wt_regions)
+    wt_block = isempty(wt) ? "" : "\n            <div class=\"top-mover-wt\">$wt</div>"
+    group_badge = isempty(strip(group)) ? "" : "<span class=\"top-mover-group-badge\">$group</span>"
     """
     <div class="top-mover-row">
         <div class="top-mover-card" data-median="$(e.median)" onclick="openTopMover($rowid)">
             <img src="$(e.img)" alt="$name" class="singleton-img">
             <span class="singleton-filter-overlay">$name</span>
         </div>
-        <div class="top-mover-meta">
-            <div class="top-mover-name">$name</div>$epi_block
+        <div class="top-mover-info">
+            <div class="top-mover-head">$group_badge<span class="top-mover-name">$name</span></div>
+            $(stats_chips_html(e))$epi_block$wt_block
         </div>
-        <div class="top-mover-wt">$(wt_track_html(e.wt_regions))</div>
     </div>"""
 end
 
