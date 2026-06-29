@@ -106,10 +106,16 @@ function plot_motifs_mut_case(data, m,
     catch
         nothing
     end
+    wild_type = try
+        String(data.raw_data.consensus)
+    catch
+        nothing
+    end
     render_top_movers_page!(save_path;
         positives=positives, negatives=negatives,
         page_title=page_title, nav_page_count=nav_page_count,
-        protein_name=protein_name, protein_length=protein_length
+        protein_name=protein_name, protein_length=protein_length,
+        wild_type=wild_type
     )
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)

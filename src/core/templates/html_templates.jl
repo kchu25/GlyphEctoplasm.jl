@@ -1079,6 +1079,36 @@ html_template_top_movers = mt"""<!DOCTYPE html>
         window.scrollTo(0, topMoverScroll);
     }
 
+    // One-click copy of a row's wild-type amino-acid string(s).
+    function copyWildType(btn) {
+        const text = btn.dataset.wt || '';
+        const flash = function () {
+            const original = btn.textContent;
+            btn.textContent = '✓ Copied';
+            btn.classList.add('copied');
+            setTimeout(function () {
+                btn.textContent = original;
+                btn.classList.remove('copied');
+            }, 1200);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(flash).catch(function () { fallbackCopyWT(text, flash); });
+        } else {
+            fallbackCopyWT(text, flash);
+        }
+    }
+    function fallbackCopyWT(text, done) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+        done();
+    }
+
     window.onclick = function (event) {
         const modal = document.getElementById('singletonModal');
         if (event.target === modal) closeSingletonModal();

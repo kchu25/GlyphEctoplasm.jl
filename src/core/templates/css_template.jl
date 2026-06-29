@@ -693,10 +693,12 @@ span.putBar {
     padding: 14px 0;
 }
 
-/* Two tracks: the clickable card, then an info column that fills the row. */
+/* Fixed grid tracks so the three columns line up vertically across every row.
+   Track 2 is sized to fit the name/epistasis so the WT track starts right after
+   it (no big gap); track 3 takes the remaining width. */
 .top-mover-row {
     display: grid;
-    grid-template-columns: 190px 1fr;   /* card track (190) > card image (150) widens card→info gap */
+    grid-template-columns: 190px 200px 1fr;   /* card track (190) > card image (150) widens card→epistasis gap */
     align-items: center;
     column-gap: 28px;
 }
@@ -724,95 +726,58 @@ span.putBar {
     z-index: 50;
 }
 
-/* Right: info column (grid track 2) — header, stat strip, optional epi/WT.
-   Content is centered within the track for a balanced row. */
-.top-mover-info {
+/* Middle: epistasis column (grid track 2). */
+.top-mover-meta {
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 8px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #1f2937;
 }
 
+/* Right: wild-type track (grid track 3). */
 .top-mover-wt {
     min-width: 0;
 }
 
-/* Header row: group badge + filter-index name. */
-.top-mover-head {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.top-mover-group-badge {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #475569;
-    background: #eef2f7;
-    border-radius: 999px;
-    padding: 2px 9px;
-    white-space: nowrap;
-}
-
 .top-mover-name {
     font-size: 13px;
-    font-weight: 500;
-    color: #334155;
-    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    margin-bottom: 4px;
 }
 
-/* Labeled stat strip, centered within the row. */
-.top-mover-stats {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-}
-
-.tm-chip {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    padding: 6px 12px;
-    background: #f8fafc;
-    border: 1px solid #eef2f7;
-    border-radius: 8px;
-}
-
-.tm-chip-label {
-    font-size: 10px;
+/* Muted "position(s)" prefix before a mutation-span name. */
+.top-mover-name-label {
+    font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.03em;
     text-transform: uppercase;
-    color: #94a3b8;
-    white-space: nowrap;
+    color: #9ca3af;
+    margin-right: 5px;
 }
 
-.tm-chip-val {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1f2937;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.tm-chip-sub {
+/* One-click wild-type copy button (sits beside the protein title). */
+.wt-copy-btn {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 11px;
-    font-weight: 400;
-    color: #94a3b8;
+    font-weight: 500;
+    color: #475569;
+    background: #ffffff;
+    border: 1px solid #d8dee9;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.tm-chip-val .tm-pos { color: #8b0000; }   /* positive Shapley — matches card border */
-.tm-chip-val .tm-neg { color: #00008b; }   /* negative Shapley */
+.wt-copy-btn:hover {
+    background: #f1f5f9;
+    border-color: #94a3b8;
+}
+
+.wt-copy-btn.copied {
+    color: #166534;
+    background: #f0fdf4;
+    border-color: #86efac;
+}
 
 /* Epistasis (interaction coefficient) — two compact dark-gray lines per row. */
 .top-mover-epistasis {

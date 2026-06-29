@@ -170,60 +170,24 @@ function wt_track_html(regions::AbstractVector{WildTypeRegion})
     return "<div class=\"wt-block\">" * join(region_html, "\n") * "</div>"
 end
 
-# Format a numeric stat for the summary chips: "—" for NaN, optional leading
-# "+" so positive Shapley values read as gains.
-function _tm_num(x::Real; signed::Bool=false, digits::Int=2)
-    isnan(x) && return "—"
-    s = string(round(x; digits=digits))
-    (signed && x > 0) ? "+" * s : s
-end
-
-# Compact p-value: blank when unavailable, "<0.001" below the floor.
-_tm_pval(p::Real) = isnan(p) ? "" : (p < 0.001 ? "&lt;0.001" : string(round(p; digits=3)))
-
-# One labeled stat chip (small caps label over a bold value).
-_tm_chip(label::AbstractString, value::AbstractString) = string(
-    "<div class=\"tm-chip\"><span class=\"tm-chip-label\">", label,
-    "</span><span class=\"tm-chip-val\">", value, "</span></div>")
-
-"""
-    stats_chips_html(entry) -> String
-
-Render the right-hand stat strip from the entry's metadata: Shapley median
-(sign-colored), expression median, mean NND (with NND p-value when available),
-mutation position (when present), and sequence count.
-"""
-function stats_chips_html(e::TopMoverEntry)
-    mcls = e.median > 0 ? "tm-pos" : (e.median < 0 ? "tm-neg" : "")
-    mval = "<span class=\"$mcls\">$(_tm_num(e.median; signed=true))</span>"
-
-    nnd_val = _tm_num(e.cluster_nnd)
-    pstr = _tm_pval(e.nnd_p)
-    if nnd_val != "—" && !isempty(pstr)
-        nnd_val = string(nnd_val, " <span class=\"tm-chip-sub\">p ", pstr, "</span>")
-    end
-
-    chips = String[
-        _tm_chip("Shapley median", mval),
-        _tm_chip("Expression median", _tm_num(e.cluster_median)),
-        _tm_chip("Mean NND", nnd_val),
-    ]
-    isempty(strip(e.span)) || push!(chips, _tm_chip("Position", _tm_esc(e.span)))
-    push!(chips, _tm_chip("Count", string(e.count)))
-    return "<div class=\"top-mover-stats\">" * join(chips) * "</div>"
-end
-
 """
     top_mover_row_html(entry, rowid) -> String
 
 Render one summary row: a clickable card (left) wired to `openTopMover(rowid)`
-and an info column (right) holding a group badge + name, a labeled stat strip,
-and — when present — the epistasis line and wild-type track. `rowid` is the
-0-based index into the page's `topMoverData` JS array.
+and a metadata table (right). `rowid` is the 0-based index into the page's
+`topMoverData` JS array.
 """
 function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=true)
     name = _tm_esc(e.display_name)
-    group = _tm_esc(e.group_label)
+    # Mutagenesis rows: the name is a mutation-position span — prefix it with a
+    # muted "position(s)" label so the bare coordinates read clearly. (Conv rows
+    # have an empty span and keep the name as-is.)
+    name_html = if isempty(strip(e.span))
+        "<div class=\"top-mover-name\">$name</div>"
+    else
+        word = occursin(',', e.span) ? "positions" : "position"
+        "<div class=\"top-mover-name\"><span class=\"top-mover-name-label\">$word</span>$name</div>"
+    end
     epi_block = if !show_epistasis
         ""                                          # caller opted out (e.g. convolution case)
     else
@@ -240,19 +204,16 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=t
         end
         "\n            <div class=\"top-mover-epistasis\">$epi</div>"
     end
-    wt = wt_track_html(e.wt_regions)
-    wt_block = isempty(wt) ? "" : "\n            <div class=\"top-mover-wt\">$wt</div>"
-    group_badge = isempty(strip(group)) ? "" : "<span class=\"top-mover-group-badge\">$group</span>"
     """
     <div class="top-mover-row">
         <div class="top-mover-card" data-median="$(e.median)" onclick="openTopMover($rowid)">
             <img src="$(e.img)" alt="$name" class="singleton-img">
             <span class="singleton-filter-overlay">$name</span>
         </div>
-        <div class="top-mover-info">
-            <div class="top-mover-head">$group_badge<span class="top-mover-name">$name</span></div>
-            $(stats_chips_html(e))$epi_block$wt_block
+        <div class="top-mover-meta">
+            $name_html$epi_block
         </div>
+        <div class="top-mover-wt">$(wt_track_html(e.wt_regions))</div>
     </div>"""
 end
 
@@ -270,6 +231,7 @@ function render_top_movers_page!(save_path::AbstractString;
         nav_page_count::Integer=4,
         protein_name::Union{AbstractString,Nothing}=nothing,
         protein_length::Union{Integer,Nothing}=nothing,
+        wild_type::Union{AbstractString,Nothing}=nothing,  # full WT sequence → adds a copy button by the title
         show_epistasis::Bool=true,      # set false to hide the epistasis line (convolution case)
         modal_scroll_fix::Bool=false,   # set true to give the detail popup its own scrollbar
         file::AbstractString="index.html")
@@ -294,7 +256,11 @@ function render_top_movers_page!(save_path::AbstractString;
         sep_html = (has_name && has_len) ? "<span class=\"protein-title-sep\">·</span>" : ""
         len_html = has_len ?
             string("<span class=\"protein-title-meta\">length: ", protein_length, " amino acids</span>") : ""
-        string("<div class=\"protein-title\">", name_html, sep_html, len_html, "</div>")
+        # One-click copy of the full wild-type sequence, placed beside the title.
+        wt_html = (wild_type !== nothing && !isempty(strip(wild_type))) ?
+            string("<button type=\"button\" class=\"wt-copy-btn\" data-wt=\"",
+                   _tm_esc(wild_type), "\" onclick=\"copyWildType(this)\">Copy wild-type</button>") : ""
+        string("<div class=\"protein-title\">", name_html, sep_html, len_html, wt_html, "</div>")
     end
 
     # rowid space: positives first, then negatives — matches the JS data array.
