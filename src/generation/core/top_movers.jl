@@ -171,18 +171,23 @@ Render one summary row: a clickable card (left) wired to `openTopMover(rowid)`
 and a metadata table (right). `rowid` is the 0-based index into the page's
 `topMoverData` JS array.
 """
-function top_mover_row_html(e::TopMoverEntry, rowid::Int)
+function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=true)
     name = _tm_esc(e.display_name)
-    epi = if isempty(strip(e.epistasis))
-        "<div class=\"epi-line epi-none\">epistasis: n/a</div>"
+    epi_block = if !show_epistasis
+        ""                                          # caller opted out (e.g. convolution case)
     else
-        coef, pval = parse_epistasis(e.epistasis)
-        if coef === nothing
-            "<div class=\"epi-line\">$(e.epistasis)</div>"   # unknown format: show as-is
+        epi = if isempty(strip(e.epistasis))
+            "<div class=\"epi-line epi-none\">epistasis: n/a</div>"
         else
-            pv = pval === nothing ? "" : "<div class=\"epi-line epi-sub\">p-value: $(pval)</div>"
-            "<div class=\"epi-line\">epistasis: <strong>$(coef)</strong></div>$pv"
+            coef, pval = parse_epistasis(e.epistasis)
+            if coef === nothing
+                "<div class=\"epi-line\">$(e.epistasis)</div>"   # unknown format: show as-is
+            else
+                pv = pval === nothing ? "" : "<div class=\"epi-line epi-sub\">p-value: $(pval)</div>"
+                "<div class=\"epi-line\">epistasis: <strong>$(coef)</strong></div>$pv"
+            end
         end
+        "\n            <div class=\"top-mover-epistasis\">$epi</div>"
     end
     """
     <div class="top-mover-row">
@@ -191,8 +196,7 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int)
             <span class="singleton-filter-overlay">$name</span>
         </div>
         <div class="top-mover-meta">
-            <div class="top-mover-name">$name</div>
-            <div class="top-mover-epistasis">$epi</div>
+            <div class="top-mover-name">$name</div>$epi_block
         </div>
         <div class="top-mover-wt">$(wt_track_html(e.wt_regions))</div>
     </div>"""
@@ -212,9 +216,17 @@ function render_top_movers_page!(save_path::AbstractString;
         nav_page_count::Integer=4,
         protein_name::Union{AbstractString,Nothing}=nothing,
         protein_length::Union{Integer,Nothing}=nothing,
+        show_epistasis::Bool=true,      # set false to hide the epistasis line (convolution case)
+        modal_scroll_fix::Bool=false,   # set true to give the detail popup its own scrollbar
         file::AbstractString="index.html")
 
     mkpath(save_path)
+
+    # Optional <head> injection. The detail popup reuses the singleton modal,
+    # whose overlay scrolls at the page level; `modal_scroll_fix` adds a popup-local
+    # scrollbar so tall content is reachable without scrolling the dimmed backdrop.
+    extra_head = modal_scroll_fix ?
+        "<style>#singletonModal .singleton-modal-content{max-height:90vh;overflow-y:auto;}</style>" : ""
 
     # Slick protein masthead: name (when supplied) plus an optional length note.
     has_name = protein_name !== nothing && !isempty(strip(protein_name))
@@ -238,13 +250,14 @@ function render_top_movers_page!(save_path::AbstractString;
     data_js = "const topMoverData = " * JSON3.write(payload) * ";"
 
     pos_html = isempty(positives) ? "<p class=\"top-mover-empty\">No positive motifs.</p>" :
-        join((top_mover_row_html(e, i - 1) for (i, e) in enumerate(positives)), "\n")
+        join((top_mover_row_html(e, i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(positives)), "\n")
     neg_html = isempty(negatives) ? "<p class=\"top-mover-empty\">No negative motifs.</p>" :
-        join((top_mover_row_html(e, length(positives) + i - 1) for (i, e) in enumerate(negatives)), "\n")
+        join((top_mover_row_html(e, length(positives) + i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(negatives)), "\n")
 
     html_rendered = Mustache.render(html_template_top_movers;
         protein_name=page_title,
         protein_header=protein_header,
+        extra_head=extra_head,
         upto=nav_page_count,
         top_mover_data=data_js,
         positive_rows=pos_html,

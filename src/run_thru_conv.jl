@@ -125,7 +125,9 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     render_top_movers_page!(save_path;
         positives=positives, negatives=negatives,
         page_title=page_title, nav_page_count=nav_page_count,
-        protein_name=protein_name, protein_length=protein_length
+        protein_name=protein_name, protein_length=protein_length,
+        show_epistasis=false,       # convolution case: hide the epistasis line
+        modal_scroll_fix=true       # give the detail popup its own scrollbar
     )
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)

@@ -894,6 +894,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{{:protein_name}}} - Summary</title>
     <link rel="stylesheet" href="styles.css">
+    {{{:extra_head}}}
 </head>
 <body>
     <br><br>
