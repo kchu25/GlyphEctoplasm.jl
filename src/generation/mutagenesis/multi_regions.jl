@@ -211,12 +211,22 @@ function collect_mutation_region_metadata(df_mutated, config::MutationRegionConf
         start_positions = agg.adjusted_positions_vec[k]
         (isempty(count_mats) || any(isempty, count_mats)) && continue
         
+        # Retain only what downstream rendering actually reads from the group's
+        # rows: `:data_pt_index` (population intersects) and the position columns
+        # (build_motif_windows). `agg.gdf[k]` is a SubDataFrame *view* and
+        # `agg.list_of_banzhafs[k]` is a column *view* — both pin the entire
+        # parent DataFrame (all N rows, all columns) alive for the whole render
+        # pass. Materialising a slim, owned copy here lets the parent grouped
+        # DataFrame be GC'd after collection. Same values ⇒ output unchanged.
+        gdf_row_slim = agg.gdf[k][:, [:data_pt_index; m_position_symbols(motif_size)]]
+        banzhafs_owned = collect(agg.list_of_banzhafs[k])
+
         # Build motif data
         motif_data = MotifData(
             k, count_mats, start_positions,
             BitMatrix.(agg.reference_matrices_vec[k]),
             agg.median_map[k], agg.count_map[k],
-            agg.list_of_banzhafs[k], agg.gdf[k]
+            banzhafs_owned, gdf_row_slim
         )
         
         # Compute fragment info
@@ -503,8 +513,10 @@ function motif_cluster_nnd(meta, pts, all_indices; nnd_k)
         members = Set(intersect(meta.gdf_row.data_pt_index, all_indices))
         positions = findall(all_indices .∈ Ref(members))
         length(positions) < 2 && return NaN
-        bg = Vector{Float64}(pts.labels)
-        subpop_vals = sort!([bg[i] for i in positions])
+        # Gather only the in-group labels directly — avoids allocating a full
+        # length-N Float64 copy of `pts.labels` on every motif (this runs once
+        # per motif in the pre-sort pass, so the old copy was O(N·M) churn).
+        subpop_vals = sort!([Float64(pts.labels[i]) for i in positions])
         k_clamped = min(nnd_k, length(positions) - 1)
         return mean_knn_within_group_1d(subpop_vals, k_clamped)
     catch
@@ -680,7 +692,8 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         start_idx = 1, sort_globally = true, sort_by_pareto = false,
         sort_by_bins = true, bin_count = 10,
         pts = nothing, all_indices = nothing, interaction_summaries = nothing,
-        nnd_k = 15, top_movers_out = nothing)
+        nnd_k = 15, top_movers_out = nothing,
+        gc_every::Int = 25)
 
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -754,9 +767,9 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
     n_indicator_failed = 0;  first_indicator_error = nothing
     n_interaction_candidates = 0; n_interaction_hits = 0
 
-    for meta in all_metadata
+    for (iter_no, meta) in enumerate(all_metadata)
         mkpath(meta.save_folder)
-        
+
         file_name, display_name = motif_filename_and_display(meta)
 
         paths = build_motif_paths(file_name, meta.save_folder, meta.motif_type)
@@ -849,6 +862,21 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         catch e
             n_failed += 1
             first_error === nothing && (first_error = e)
+        end
+
+        # Reclaim plotting memory periodically. GR/Plots keeps global figure
+        # state and CairoMakie figures back onto C-side Cairo surfaces that
+        # Julia's GC does not count toward heap pressure, so a long render loop
+        # leaks RSS (~1 GB / few-hundred motifs, measured) unless we tear those
+        # down explicitly. `GC.gc(false)` is a cheap *incremental* collection
+        # (~1 ms) that still runs the surface finalizers — a full `GC.gc()` here
+        # costs ~0.5 s/call and is far too slow to do in a loop. Done every
+        # `gc_every` iterations to amortise the cost (default ≈10% slower, ~2×
+        # less peak RSS); `gc_every=0` disables it and restores the previous
+        # (leakier but marginally faster) behaviour exactly.
+        if gc_every > 0 && iter_no % gc_every == 0
+            try; EntroPlots.Plots.closeall(); catch; end
+            GC.gc(false)
         end
     end
 
