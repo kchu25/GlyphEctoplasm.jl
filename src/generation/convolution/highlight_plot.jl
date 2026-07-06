@@ -140,7 +140,7 @@ fig = plot_labels_vs_procprod(pts, is_motif;
 save("motif_enrichment.png", fig)
 ```
 """
-function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_r2=false, motif_label="Contain motif", alpha_power=1.01)
+function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_r2=false, motif_label="Contain motif", alpha_power=1.01, bg_max_points=nothing)
     fig = Figure(size=(800, 800))
     ax = Axis(fig[1, 1], 
         xlabel="Predicted values", 
@@ -168,17 +168,29 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_
 
     n_fg = sum(fg_mask)
 
+    # Optional: cap the background cloud. Rendering the full non-motif population
+    # is the dominant cost for large N; a uniform random subsample keeps the
+    # cloud's shape/density while making the scatter O(bg_max_points). Off by
+    # default (nothing) — no change to existing behaviour. Seeded for a stable
+    # image across re-renders.
+    if bg_max_points !== nothing && length(bg_x) > bg_max_points
+        sel = Random.randperm(Random.MersenneTwister(0), length(bg_x))[1:bg_max_points]
+        bg_x = bg_x[sel]
+        bg_y = bg_y[sel]
+    end
+
     # ═══════════════════════════════════════════════════════════════════════
     # Layer 1 (back): Scatter for non-motif population
     # ═══════════════════════════════════════════════════════════════════════
     if length(bg_x) > 0
+        # No per-point stroke: at markersize=1 the outline is imperceptible but
+        # stroked markers roughly double Cairo's rasterisation cost for N points.
         scatter!(ax, bg_x, bg_y,
-            color=RGBA(0.70, 0.70, 0.80, 0.85), 
-            markersize=1, 
+            color=RGBA(0.70, 0.70, 0.80, 0.85),
+            markersize=1,
             marker=:circle,
-            strokewidth=0.7, 
-            strokecolor=RGBA(0.5, 0.5, 0.6, 0.5))
-        
+            strokewidth=0)
+
         # Legend entry with matching size as motif legend
         scatter!(ax, [NaN], [NaN],
             color=RGBA(0.70, 0.70, 0.80, 0.85), markersize=12, marker=:circle,

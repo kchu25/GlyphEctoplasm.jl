@@ -465,9 +465,9 @@ convention the singleton modal derives from the card image
 (`<dir>/yy_kde_intersect_<file_name>.png`). May throw; callers wrap this so a
 failure (e.g. `pts` not aligned to `all_indices`) only skips this one plot.
 """
-function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k)
+function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k, bg_max_points=nothing)
     is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
-    kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif")
+    kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif", bg_max_points=bg_max_points)
     save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"), kde_fig, px_per_unit=1)
     nnd = nnd_permutation_test_1d(findall(is_in_intersect), pts.labels; k=nnd_k)
     # Cluster median: where the motif's sequences sit on the expression axis
@@ -757,7 +757,7 @@ A throw propagates to the caller's per-motif `try` (which records `diag.n_failed
 """
 function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
         pts = nothing, all_indices = nothing, nnd_k = 15,
-        interaction_summaries = nothing, top_movers_out = nothing)
+        interaction_summaries = nothing, top_movers_out = nothing, bg_max_points = nothing)
     EntroPlots.save_logo_with_rect_gaps(
         meta.count_matrices, meta.positions, meta.total_length,
         paths.png.abs;
@@ -779,7 +779,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
     if pts !== nothing && all_indices !== nothing
         try
             nnd_result = save_indicator_and_nnd(meta, paths, file_name;
-                pts=pts, all_indices=all_indices, nnd_k=nnd_k)
+                pts=pts, all_indices=all_indices, nnd_k=nnd_k, bg_max_points=bg_max_points)
         catch e_ind
             diag.n_indicator_failed += 1
             diag.first_indicator_error === nothing && (diag.first_indicator_error = e_ind)
@@ -880,7 +880,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         sort_by_bins = true, bin_count = 10,
         pts = nothing, all_indices = nothing, interaction_summaries = nothing,
         nnd_k = 15, top_movers_out = nothing,
-        gc_every::Int = 25)
+        gc_every::Int = 25, bg_max_points = nothing)
 
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -917,7 +917,8 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
             render_one_motif!(
                 json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
                 pts=pts, all_indices=all_indices, nnd_k=nnd_k,
-                interaction_summaries=interaction_summaries, top_movers_out=top_movers_out
+                interaction_summaries=interaction_summaries, top_movers_out=top_movers_out,
+                bg_max_points=bg_max_points
             )
             push!(registered_names, display_name)  # Track registration
             current_idx += 1

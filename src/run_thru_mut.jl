@@ -21,7 +21,8 @@ function plot_motifs_mut_case(data, m,
         enable_colored_borders=true,
         optimize_pngs::Bool=true,
         png_colors::Int=64,
-        gc_every::Int=25       # incremental GC + Plots.closeall() every N motifs to cap RSS; 0 disables
+        gc_every::Int=25,      # incremental GC + Plots.closeall() every N motifs to cap RSS; 0 disables
+        bg_max_points=nothing  # cap the indicator-plot background cloud to this many points; nothing = no cap
     )
     # Population index basis for the per-motif indicator plots. Must share the
     # ordering of `pts` (same contract as the convolution case). Defaults to the
@@ -63,7 +64,8 @@ function plot_motifs_mut_case(data, m,
         interaction_summaries = interaction_summaries,  # Per-motif interaction text (string-valued, conv format)
         nnd_k = nnd_k,                     # k for the cluster-tightness (NND) permutation test
         top_movers_out = top_movers,       # Collect summary rows for the landing page
-        gc_every = gc_every                # Periodic incremental GC to bound peak RSS on large runs
+        gc_every = gc_every,               # Periodic incremental GC to bound peak RSS on large runs
+        bg_max_points = bg_max_points      # Optional cap on indicator-plot background points (nothing = off)
     )
 
     render_and_save_outputs!(json_motifs, html_dict, 1;

@@ -79,15 +79,25 @@ function nnd_permutation_test_1d(
     subpop_vals = sort!([bg_vals[i] for i in subpop_positions])
     obs_mNND = mean_knn_within_group_1d(subpop_vals, k_clamped)
 
-    # Null: draw m random values from background, compute within-group mNND
+    # Null: draw m values without replacement from the background, compute the
+    # within-group mNND. We only need the m sampled indices, so instead of a full
+    # length-N `randperm!` per iteration (O(B·N) — this was the render-loop
+    # bottleneck) we draw exactly m of them with a hash-map partial Fisher–Yates,
+    # i.e. O(B·m). Statistically identical (each draw is a uniform m-subset drawn
+    # without replacement); the exact Monte-Carlo p-value differs from the old
+    # code only because the RNG is consumed differently.
     count_significant = 0
-    perm_indices = Vector{Int}(undef, n_bg)
     null_vals = Vector{Float64}(undef, n_subpop)
+    swaps = Dict{Int,Int}()   # lazy view of a 1:n_bg array; only touched slots stored
 
     for _ in 1:B
-        Random.randperm!(rng, perm_indices)
-        @inbounds for i in 1:n_subpop
-            null_vals[i] = bg_vals[perm_indices[i]]
+        empty!(swaps)
+        @inbounds for j in 1:n_subpop
+            r = rand(rng, j:n_bg)          # uniform in the unshuffled tail [j, n_bg]
+            vj = get(swaps, j, j)          # current value at position j
+            vr = get(swaps, r, r)          # current value at position r
+            swaps[r] = vj                  # A[j], A[r] = A[r], A[j]; position j never revisited
+            null_vals[j] = bg_vals[vr]
         end
         sort!(null_vals)
         null_mNND = mean_knn_within_group_1d(null_vals, k_clamped)
