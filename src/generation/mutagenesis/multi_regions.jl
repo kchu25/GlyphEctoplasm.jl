@@ -658,6 +658,193 @@ function lookup_interaction(meta, interaction_summaries)
 end
 
 """
+    sort_metadata_for_registration(all_metadata; sort_globally, sort_by_bins, sort_by_pareto, bin_count, pts, all_indices, nnd_k)
+
+Return `all_metadata` in render order. Extracted verbatim from
+`register_mutation_region_motifs!` — behaviour unchanged:
+- `sort_globally=false` → returned as-is.
+- `sort_by_bins=true` (default) → binned lexicographic order
+  (group → cluster-median bin → cluster-NND bin → Shapley-median bin → count).
+- `sort_by_pareto=true` → `sort_by_group_and_pareto`.
+- otherwise → plain lexicographic sign → group → |median| → count order.
+"""
+function sort_metadata_for_registration(all_metadata;
+        sort_globally = true, sort_by_bins = true, sort_by_pareto = false,
+        bin_count = 10, pts = nothing, all_indices = nothing, nnd_k = 15)
+    sort_globally || return all_metadata
+
+    if sort_by_bins
+        # Binned lexicographic sort. Group order is primary so the group
+        # toggles render single_region → 2_regions → 3_regions → … . Within a
+        # group, continuous values (cluster median, cluster NND, Shapley
+        # median) are coarsened into `bin_count` equal-width bins over their
+        # global ranges and compared bin-by-bin — sorting on raw continuous
+        # values draws meaningless distinctions between near-equal motifs.
+        # Count (un-binned) breaks remaining ties.
+        augmented = [(
+            meta = m,
+            grp = group_order(m),
+            clus = motif_cluster_median(m, pts, all_indices),
+            nnd = motif_cluster_nnd(m, pts, all_indices; nnd_k = nnd_k),
+            shap = float(m.median),
+            cnt = m.count,
+        ) for m in all_metadata]
+
+        clus_finite = [a.clus for a in augmented if !isnan(a.clus)]
+        nnd_finite = [a.nnd for a in augmented if !isnan(a.nnd)]
+        shap_finite = [a.shap for a in augmented if !isnan(a.shap)]
+        clus_lo, clus_hi = isempty(clus_finite) ? (0.0, 0.0) : extrema(clus_finite)
+        nnd_lo, nnd_hi = isempty(nnd_finite) ? (0.0, 0.0) : extrema(nnd_finite)
+        shap_lo, shap_hi = isempty(shap_finite) ? (0.0, 0.0) : extrema(shap_finite)
+
+        sort!(augmented, by = a -> (
+            a.grp,                                                  # single_region, then 2,3,4,… regions
+            -bin_value(a.clus, clus_lo, clus_hi, bin_count),        # high cluster median bin first
+            bin_value_asc(a.nnd, nnd_lo, nnd_hi, bin_count),        # low NND bin first (tighter cluster)
+            -bin_value(a.shap, shap_lo, shap_hi, bin_count),        # high Shapley bin first
+            -a.cnt,                                                 # higher count first
+        ))
+        return [a.meta for a in augmented]
+    elseif sort_by_pareto
+        # Group by sign, then by group_id, compute Pareto ranks within each group, then sort
+        return sort_by_group_and_pareto(all_metadata)
+    else
+        # Simple lexicographic sort: single_region always first (regardless of
+        # sign — a near-zero negative singleton must not be exiled below the
+        # multi-region cards), then sign (positive first), then group, then
+        # influence, then count.
+        # Positives: high to low abs(median); Negatives: low to high abs(median).
+        # Count breaks the (rare) influence ties — higher count first.
+        return sort(all_metadata, by = m -> (
+            m.group_id == "single_region" ? 0 : 1,           # Singleton group first
+            m.median > 0 ? 0 : 1,  # Positive first
+            m.group_id == "single_region" ? 0 : parse(Int, split(m.group_id, '_')[1]),
+            m.median > 0 ? -abs(m.median) : abs(m.median),  # Desc for pos, asc for neg
+            -m.count                                         # Higher count first
+        ))
+    end
+end
+
+"""
+    RegisterDiagnostics()
+
+Mutable, shared per-run counter bag for `register_mutation_region_motifs!`.
+`render_one_motif!` bumps these at the exact points the pre-refactor loop body
+did, so a counter incremented before a later throw in the same iteration
+survives — keeping the end-of-run summary bit-identical to before the extraction.
+"""
+mutable struct RegisterDiagnostics
+    n_failed::Int
+    first_error::Any
+    n_indicator_failed::Int
+    first_indicator_error::Any
+    n_interaction_candidates::Int
+    n_interaction_hits::Int
+end
+RegisterDiagnostics() = RegisterDiagnostics(0, nothing, 0, nothing, 0, 0)
+
+"""
+    render_one_motif!(json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag; kwargs...)
+
+Render one motif's outputs (logo, influence plot, optional indicator/NND plot,
+positional CSV) and register its card into `json_motifs`/`html_dict`, pushing a
+`TopMoverEntry` into `top_movers_out` when supplied. Extracted verbatim from the
+`register_mutation_region_motifs!` loop body — behaviour unchanged.
+
+Non-fatal diagnostics (indicator failures, interaction candidacy/hits) are bumped
+in-place on `diag::RegisterDiagnostics` at the same points as the original loop.
+A throw propagates to the caller's per-motif `try` (which records `diag.n_failed`).
+"""
+function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
+        pts = nothing, all_indices = nothing, nnd_k = 15,
+        interaction_summaries = nothing, top_movers_out = nothing)
+    EntroPlots.save_logo_with_rect_gaps(
+        meta.count_matrices, meta.positions, meta.total_length,
+        paths.png.abs;
+        reference_pfms=meta.references,
+        dpi=meta.dpi,
+        rna=meta.use_rna,
+        xrotation=35,
+        protein=size(meta.count_matrices[1], 1) == 20,
+        uniform_color=true,
+        filter_by_reference=meta.reduction_on_ref
+    )
+
+    save_influence_plot(meta.banzhafs, paths.influence.abs; xlim=meta.xlim)
+
+    # Per-motif indicator plot + NND test (only when `pts` is supplied).
+    # Non-fatal: a failure here (e.g. pts not aligned to all_indices) must
+    # not abort the whole card — just skip the indicator plot.
+    nnd_result = nothing
+    if pts !== nothing && all_indices !== nothing
+        try
+            nnd_result = save_indicator_and_nnd(meta, paths, file_name;
+                pts=pts, all_indices=all_indices, nnd_k=nnd_k)
+        catch e_ind
+            diag.n_indicator_failed += 1
+            diag.first_indicator_error === nothing && (diag.first_indicator_error = e_ind)
+        end
+    end
+
+    flat_windows = build_motif_windows(
+        meta.gdf_row, meta.motif_size, meta.filter_len;
+        offset=meta.config.data.prefix_offset
+    )
+    save_positional_info(flat_windows, paths, meta.filter_len)
+
+    # Per-motif interaction summary (multi-region motifs only). Count candidacy
+    # here — the exact point the pre-refactor loop did — so a later throw in
+    # texts/add_motif_entry! leaves the already-bumped count intact.
+    is_interaction_candidate, interaction_str = lookup_interaction(meta, interaction_summaries)
+    if is_interaction_candidate
+        diag.n_interaction_candidates += 1
+        interaction_str !== nothing && (diag.n_interaction_hits += 1)
+    end
+
+    texts = build_metadata_texts(
+        nothing, paths, meta.median, meta.count;
+        use_rna=meta.use_rna,
+        relaxed_median=nothing,
+        show_meme_and_csv=false,
+        interaction_summary_mode_str=interaction_str,
+        nnd_result=nnd_result
+    )
+
+    mode_prefix = isempty(meta.group_id) ? "mode_" : "mode_$(meta.group_id)_"
+    mode_str = mode_prefix * string(current_idx)
+    add_motif_entry!(
+        json_motifs, html_dict, mode_str, paths.png.rel,
+        "", texts, current_idx, display_name, meta.median,
+        meta.group_id, meta.button_text
+    )
+
+    # Collect a self-contained summary row for the top-movers landing page.
+    # Uses data already in scope; cluster median/NND/p come from the (cheap
+    # half of the) NND result, NaN when `pts` wasn't supplied.
+    if top_movers_out !== nothing
+        cm = nnd_result === nothing ? NaN : float(nnd_result.cluster_median)
+        cn = nnd_result === nothing ? NaN : float(nnd_result.obs_mNND)
+        cp = nnd_result === nothing ? NaN : float(nnd_result.p_value)
+        push!(top_movers_out, TopMoverEntry(
+            float(meta.median), cm, cn, meta.count,
+            display_name, meta.button_text, meta.span, cp,
+            meta.motif_size == 1,
+            interaction_str === nothing ? "" : interaction_str,
+            motif_wt_regions(meta),
+            paths.png.rel, paths.influence.rel,
+            joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),
+            collect(String, json_motifs[mode_str][texts_str][1]),
+            # No slider here: the mutagenesis page uses a different file
+            # layout (per-file yy_kde, no base-folder relaxed plot), so its
+            # popup keeps the static singleton modal. (Conv case opts in.)
+            String[], String[], Vector{String}[],
+        ))
+    end
+
+    return nothing
+end
+
+"""
     register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata_list;
                                      start_idx=1, sort_globally=true, sort_by_pareto=true)
 
@@ -703,69 +890,21 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         motif_metadata_list
     end
 
-    # Sort globally if requested
-    if sort_globally
-        if sort_by_bins
-            # Binned lexicographic sort. Group order is primary so the group
-            # toggles render single_region → 2_regions → 3_regions → … . Within a
-            # group, continuous values (cluster median, cluster NND, Shapley
-            # median) are coarsened into `bin_count` equal-width bins over their
-            # global ranges and compared bin-by-bin — sorting on raw continuous
-            # values draws meaningless distinctions between near-equal motifs.
-            # Count (un-binned) breaks remaining ties.
-            augmented = [(
-                meta = m,
-                grp = group_order(m),
-                clus = motif_cluster_median(m, pts, all_indices),
-                nnd = motif_cluster_nnd(m, pts, all_indices; nnd_k = nnd_k),
-                shap = float(m.median),
-                cnt = m.count,
-            ) for m in all_metadata]
+    # Sort into render order (binned-lexicographic by default; see helper).
+    all_metadata = sort_metadata_for_registration(all_metadata;
+        sort_globally = sort_globally, sort_by_bins = sort_by_bins,
+        sort_by_pareto = sort_by_pareto, bin_count = bin_count,
+        pts = pts, all_indices = all_indices, nnd_k = nnd_k)
 
-            clus_finite = [a.clus for a in augmented if !isnan(a.clus)]
-            nnd_finite = [a.nnd for a in augmented if !isnan(a.nnd)]
-            shap_finite = [a.shap for a in augmented if !isnan(a.shap)]
-            clus_lo, clus_hi = isempty(clus_finite) ? (0.0, 0.0) : extrema(clus_finite)
-            nnd_lo, nnd_hi = isempty(nnd_finite) ? (0.0, 0.0) : extrema(nnd_finite)
-            shap_lo, shap_hi = isempty(shap_finite) ? (0.0, 0.0) : extrema(shap_finite)
-
-            sort!(augmented, by = a -> (
-                a.grp,                                                  # single_region, then 2,3,4,… regions
-                -bin_value(a.clus, clus_lo, clus_hi, bin_count),        # high cluster median bin first
-                bin_value_asc(a.nnd, nnd_lo, nnd_hi, bin_count),        # low NND bin first (tighter cluster)
-                -bin_value(a.shap, shap_lo, shap_hi, bin_count),        # high Shapley bin first
-                -a.cnt,                                                 # higher count first
-            ))
-            all_metadata = [a.meta for a in augmented]
-        elseif sort_by_pareto
-            # Group by sign, then by group_id, compute Pareto ranks within each group, then sort
-            all_metadata = sort_by_group_and_pareto(all_metadata)
-        else
-            # Simple lexicographic sort: single_region always first (regardless of
-            # sign — a near-zero negative singleton must not be exiled below the
-            # multi-region cards), then sign (positive first), then group, then
-            # influence, then count.
-            # Positives: high to low abs(median); Negatives: low to high abs(median).
-            # Count breaks the (rare) influence ties — higher count first.
-            all_metadata = sort(all_metadata, by=m -> (
-                m.group_id == "single_region" ? 0 : 1,           # Singleton group first
-                m.median > 0 ? 0 : 1,  # Positive first
-                m.group_id == "single_region" ? 0 : parse(Int, split(m.group_id, '_')[1]),
-                m.median > 0 ? -abs(m.median) : abs(m.median),  # Desc for pos, asc for neg
-                -m.count                                         # Higher count first
-            ))
-        end
-    end
-    
     current_idx = start_idx
 
     registered_names = String[]  # Track what we register
 
     # Accumulate failures/diagnostics and report once at the end instead of
-    # spamming one log line per motif (keeps stdout quiet on large runs).
-    n_failed = 0;            first_error = nothing
-    n_indicator_failed = 0;  first_indicator_error = nothing
-    n_interaction_candidates = 0; n_interaction_hits = 0
+    # spamming one log line per motif (keeps stdout quiet on large runs). Shared,
+    # mutable so `render_one_motif!` can bump a counter at the exact point the
+    # old inline loop did and have it survive a later throw in the same iteration.
+    diag = RegisterDiagnostics()
 
     for (iter_no, meta) in enumerate(all_metadata)
         mkpath(meta.save_folder)
@@ -773,95 +912,18 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         file_name, display_name = motif_filename_and_display(meta)
 
         paths = build_motif_paths(file_name, meta.save_folder, meta.motif_type)
-        
+
         try
-            EntroPlots.save_logo_with_rect_gaps(
-                meta.count_matrices, meta.positions, meta.total_length,
-                paths.png.abs; 
-                reference_pfms=meta.references, 
-                dpi=meta.dpi, 
-                rna=meta.use_rna, 
-                xrotation=35,
-                protein=size(meta.count_matrices[1], 1) == 20,
-                uniform_color=true, 
-                filter_by_reference=meta.reduction_on_ref
+            render_one_motif!(
+                json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
+                pts=pts, all_indices=all_indices, nnd_k=nnd_k,
+                interaction_summaries=interaction_summaries, top_movers_out=top_movers_out
             )
-            
-            save_influence_plot(meta.banzhafs, paths.influence.abs; xlim=meta.xlim)
-
-            # Per-motif indicator plot + NND test (only when `pts` is supplied).
-            # Non-fatal: a failure here (e.g. pts not aligned to all_indices) must
-            # not abort the whole card — just skip the indicator plot.
-            nnd_result = nothing
-            if pts !== nothing && all_indices !== nothing
-                try
-                    nnd_result = save_indicator_and_nnd(meta, paths, file_name;
-                        pts=pts, all_indices=all_indices, nnd_k=nnd_k)
-                catch e_ind
-                    n_indicator_failed += 1
-                    first_indicator_error === nothing && (first_indicator_error = e_ind)
-                end
-            end
-
-            flat_windows = build_motif_windows(
-                meta.gdf_row, meta.motif_size, meta.filter_len; 
-                offset=meta.config.data.prefix_offset
-            )
-            save_positional_info(flat_windows, paths, meta.filter_len)
-            
-            # Per-motif interaction summary (multi-region motifs only).
-            is_interaction_candidate, interaction_str = lookup_interaction(meta, interaction_summaries)
-            if is_interaction_candidate
-                n_interaction_candidates += 1
-                interaction_str !== nothing && (n_interaction_hits += 1)
-            end
-
-            texts = build_metadata_texts(
-                nothing, paths, meta.median, meta.count;
-                use_rna=meta.use_rna,
-                relaxed_median=nothing,
-                show_meme_and_csv=false,
-                interaction_summary_mode_str=interaction_str,
-                nnd_result=nnd_result
-            )
-            
-            mode_prefix = isempty(meta.group_id) ? "mode_" : "mode_$(meta.group_id)_"
-            mode_str = mode_prefix * string(current_idx)
-            add_motif_entry!(
-                json_motifs, html_dict, mode_str, paths.png.rel, 
-                "", texts, current_idx, display_name, meta.median, 
-                meta.group_id, meta.button_text
-            )
-            
             push!(registered_names, display_name)  # Track registration
-
-            # Collect a self-contained summary row for the top-movers landing page.
-            # Uses data already in scope; cluster median/NND/p come from the (cheap
-            # half of the) NND result, NaN when `pts` wasn't supplied.
-            if top_movers_out !== nothing
-                cm = nnd_result === nothing ? NaN : float(nnd_result.cluster_median)
-                cn = nnd_result === nothing ? NaN : float(nnd_result.obs_mNND)
-                cp = nnd_result === nothing ? NaN : float(nnd_result.p_value)
-                push!(top_movers_out, TopMoverEntry(
-                    float(meta.median), cm, cn, meta.count,
-                    display_name, meta.button_text, meta.span, cp,
-                    meta.motif_size == 1,
-                    interaction_str === nothing ? "" : interaction_str,
-                    motif_wt_regions(meta),
-                    paths.png.rel, paths.influence.rel,
-                    joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),
-                    collect(String, json_motifs[mode_str][texts_str][1]),
-                    # No slider here: the mutagenesis page uses a different file
-                    # layout (per-file yy_kde, no base-folder relaxed plot), so its
-                    # popup keeps the static singleton modal. (Conv case opts in.)
-                    String[], String[], Vector{String}[],
-                ))
-            end
-
             current_idx += 1
         catch e
-            n_failed += 1
-            first_error === nothing && (first_error = e)
+            diag.n_failed += 1
+            diag.first_error === nothing && (diag.first_error = e)
         end
 
         # Reclaim plotting memory periodically. GR/Plots keeps global figure
@@ -881,9 +943,9 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
     end
 
     # One summary line each, instead of a per-motif flood.
-    n_failed > 0 && @warn "register_mutation_region_motifs!: $n_failed motif(s) failed to render and were skipped" first_error
-    n_indicator_failed > 0 && @warn "register_mutation_region_motifs!: indicator plot skipped for $n_indicator_failed motif(s) — check that `pts` is aligned to `all_indices`" first_indicator_error
-    n_interaction_candidates > 0 && @info "register_mutation_region_motifs!: interaction summaries matched $n_interaction_hits / $n_interaction_candidates multi-region motifs"
+    diag.n_failed > 0 && @warn "register_mutation_region_motifs!: $(diag.n_failed) motif(s) failed to render and were skipped" diag.first_error
+    diag.n_indicator_failed > 0 && @warn "register_mutation_region_motifs!: indicator plot skipped for $(diag.n_indicator_failed) motif(s) — check that `pts` is aligned to `all_indices`" diag.first_indicator_error
+    diag.n_interaction_candidates > 0 && @info "register_mutation_region_motifs!: interaction summaries matched $(diag.n_interaction_hits) / $(diag.n_interaction_candidates) multi-region motifs"
 
     return current_idx
 end
