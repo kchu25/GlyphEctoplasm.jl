@@ -259,7 +259,7 @@ function collect_mutation_region_metadata(df_mutated, data;
         filter_len = 9,
         float_type = Float32,
         reference_seq = nothing,
-        off_region_search = false,
+        off_region_search = true,
         motif_size = 2,
         total_length = nothing,
         group_id = "",
