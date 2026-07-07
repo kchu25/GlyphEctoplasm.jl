@@ -63,7 +63,7 @@ Convenience constructor with sensible defaults.
 - `total_length`: Total sequence length (defaults to consensus length)
 - `filter_len::Int = 9`: Filter length
 - `float_type::Type = Float32`: Floating point precision
-- `off_region_search::Bool = true`: Enable off-region search
+- `off_region_search::Bool = false`: Enable off-region search (±3 nt reference realignment for indel-shifted motifs)
 - `reduction_on_ref::Bool = true`: Enable reference filtering
 - `dpi::Int = 65`: Image DPI
 - `use_rna::Bool = false`: Use RNA notation
@@ -75,7 +75,7 @@ function MutationRegionConfig(data;
     total_length = length(data.raw_data.consensus),
     filter_len::Int = 9,
     float_type::Type = Float32,
-    off_region_search::Bool = true,
+    off_region_search::Bool = false,
     reduction_on_ref::Bool = true,
     dpi::Int = 65,
     use_rna::Bool = false,

@@ -10,7 +10,7 @@ function plot_motifs_mut_case(data, m,
         reduction_on_ref=false,
         float_type=Float32,
         use_rna=false,
-        off_region_search=true,
+        off_region_search=false, 
         split_by_sign=true,
         sort_globally=true,
         sort_by_bins=true,      # default: single_region → Shapley-bin → cluster-bin → count
