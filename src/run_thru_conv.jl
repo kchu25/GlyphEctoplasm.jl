@@ -46,8 +46,8 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     # ── Full motif rendering pipeline ───────────────────────────
     xlim = obtain_xlim(contributions_df_filtered_singletons, dfs)
 
-    config = ConvMotifConfig(data; 
-        filter_len=m.hp.pfm_len, dpi=dpi, save_path=save_path, xlim=xlim)
+    config = ConvMotifConfig(data;
+        filter_len=m.receptive_field, dpi=dpi, save_path=save_path, xlim=xlim)
         
     json_motifs = init_json_dict()
     html_dict = init_dict_for_html_render()
