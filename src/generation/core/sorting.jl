@@ -2,6 +2,11 @@
 Pareto ranking and sorting utilities for motif prioritization.
 """
 
+# `median` throws on an empty vector, which DataFrames probes during type
+# inference when a GroupedDataFrame has zero groups. Mirror BanzhafInference's
+# `safe_median` so an empty aggregation flows through as NaN instead of crashing.
+safe_median(x) = isempty(x) ? NaN : median(x)
+
 """
     filter_pareto_rank(gdf::GroupedDataFrame; 
                        rank::Int=1,
@@ -49,10 +54,11 @@ function filter_pareto_rank(gdf::GroupedDataFrame;
     
     @assert rank >= 1 "Pareto rank must be >= 1"
     
-    # Compute summary statistics for all groups
+    # Compute summary statistics for all groups (safe_median tolerates the
+    # empty-vector probe DataFrames runs when gdf has zero groups)
     df_summary = combine(gdf,
-        :banzhaf => median => :median_banzhaf,
-        :banzhaf => (x -> abs(median(x))) => :abs_median_banzhaf,
+        :banzhaf => safe_median => :median_banzhaf,
+        :banzhaf => (x -> abs(safe_median(x))) => :abs_median_banzhaf,
         nrow => :count
     )
     
@@ -187,9 +193,15 @@ function build_sorted_keys_and_maps(gdf, keycols; sort_rev=true, pareto_rank=not
                                  maximize_objectives=[:abs_median_banzhaf, :count])
     end
 
-    # create a summary df with median banzhaf and count
-    df_summary = combine(gdf, 
-        :banzhaf => median => :banzhaf_median, 
+    # create a summary df with median banzhaf and count.
+    # `median` throws `ArgumentError: median of an empty array` on an empty
+    # vector, which DataFrames probes during type inference whenever the
+    # GroupedDataFrame has zero groups (e.g. an empty, but well-formed, df_mutated
+    # produced by BanzhafInference when no motifs of a given size were found).
+    # `safe_median` returns NaN in that case so the zero-group combine yields an
+    # empty summary instead of crashing; `mean` already returns NaN on empty input.
+    df_summary = combine(gdf,
+        :banzhaf => safe_median => :banzhaf_median,
         :banzhaf => mean => :banzhaf_mean,
         nrow => :count)
     sort!(df_summary, :banzhaf_median, rev=sort_rev)
