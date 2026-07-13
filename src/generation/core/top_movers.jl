@@ -64,7 +64,7 @@ struct TopMoverEntry
 end
 
 """
-    select_top_movers(entries; n=5, bin_count=10) -> (positives, negatives)
+    select_top_movers(entries; n=5, bin_count=10, min_count=1) -> (positives, negatives)
 
 Split `entries` by the sign of `median` and return the top `n` of each, ordered
 by the group-less binned lexicographic key — the same key the grouped page sorts
@@ -82,9 +82,23 @@ NND-tightness (tighter first) and count (higher first) tiebreakers stay the same
 in both. Continuous keys are coarsened into `bin_count` equal-width bins over the
 global range of `entries` (mirrors the display sort), so near-equal motifs aren't
 split on meaningless differences. Motifs with `median == 0` are dropped.
+
+`min_count` gates the summary on cluster size: motifs whose cluster holds fewer
+than `min_count` points are dropped before the sign split. Tiny clusters make the
+lead ranking keys degenerate — `cluster_median` is a one- or two-point "median"
+and `cluster_nnd` is `NaN`/a single pairwise distance below ~3 points, with no
+permutation-test power — so a single lucky sequence could otherwise top a column.
+The default `1` keeps every motif (no gating); the runners pass a higher floor.
+Note this is cluster size (`count`), not the `is_singleton` flag (which marks a
+single-region motif vs. a multi-motif combination — a different axis).
 """
-function select_top_movers(entries::AbstractVector{TopMoverEntry}; n::Int=5, bin_count::Int=10)
+function select_top_movers(entries::AbstractVector{TopMoverEntry}; n::Int=5, bin_count::Int=10, min_count::Int=1)
     isempty(entries) && return (TopMoverEntry[], TopMoverEntry[])
+
+    if min_count > 1
+        entries = [e for e in entries if e.count >= min_count]
+        isempty(entries) && return (TopMoverEntry[], TopMoverEntry[])
+    end
 
     clus = [e.cluster_median for e in entries if !isnan(e.cluster_median)]
     nnd  = [e.cluster_nnd    for e in entries if !isnan(e.cluster_nnd)]

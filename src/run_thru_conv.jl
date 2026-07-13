@@ -26,7 +26,8 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         dataset_name::Union{String,Nothing}=nothing,
         protein_name::Union{String,Nothing}=nothing,  # shown atop the summary page when given
         optimize_pngs::Bool=true,
-        png_colors::Int=64
+        png_colors::Int=64,
+        top_mover_min_count=5  # drop motifs whose cluster has < this many points from the summary page
         );
 
     # ── Sensitivity-analysis-only mode (skip all rendering) ────
@@ -116,7 +117,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
 
     # Top-movers summary becomes the landing page (index.html). Ranking is the
     # group-less binned lexicographic order; positives/negatives split by sign.
-    positives, negatives = select_top_movers(top_movers; n=5)
+    positives, negatives = select_top_movers(top_movers; n=5, min_count=top_mover_min_count)
     protein_length = try
         length(data.raw_data.consensus)
     catch

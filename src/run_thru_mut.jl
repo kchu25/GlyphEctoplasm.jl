@@ -16,6 +16,7 @@ function plot_motifs_mut_case(data, m,
         sort_by_bins=true,      # default: single_region → Shapley-bin → cluster-bin → count
         bin_count=10,           # equal-width bins for Shapley median and cluster median
         sort_by_pareto=false,   # fallback when sort_by_bins=false (Pareto on |median|/count)
+        top_mover_min_count=5,  # drop motifs whose cluster has < this many points from the summary page
         nav_page_count=4,
         use_unified=true,
         enable_colored_borders=true,
@@ -104,7 +105,7 @@ function plot_motifs_mut_case(data, m,
 
     # Top-movers summary becomes the landing page (index.html). Ranking is the
     # group-less binned lexicographic order; positives/negatives split by sign.
-    positives, negatives = select_top_movers(top_movers; n=5, bin_count=bin_count)
+    positives, negatives = select_top_movers(top_movers; n=5, bin_count=bin_count, min_count=top_mover_min_count)
     protein_length = try
         length(data.raw_data.consensus)
     catch
