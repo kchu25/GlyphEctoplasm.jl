@@ -206,14 +206,14 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=t
         ""                                          # caller opted out (e.g. convolution case)
     else
         epi = if isempty(strip(e.epistasis))
-            "<div class=\"epi-line epi-none\">epistasis: n/a</div>"
+            "<div class=\"epi-line epi-none\">region interaction: n/a</div>"
         else
             coef, pval = parse_epistasis(e.epistasis)
             if coef === nothing
                 "<div class=\"epi-line\">$(e.epistasis)</div>"   # unknown format: show as-is
             else
                 pv = pval === nothing ? "" : "<div class=\"epi-line epi-sub\">p-value: $(pval)</div>"
-                "<div class=\"epi-line\">epistasis: <strong>$(coef)</strong></div>$pv"
+                "<div class=\"epi-line\">region interaction: <strong>$(coef)</strong></div>$pv"
             end
         end
         "\n            <div class=\"top-mover-epistasis\">$epi</div>"
