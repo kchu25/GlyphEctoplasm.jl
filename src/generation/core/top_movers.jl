@@ -51,7 +51,13 @@ struct TopMoverEntry
     # an amino-acid track with up-arrows under each mutated residue).
     wt_regions::Vector{WildTypeRegion}
     # Self-contained modal payload (paths relative to save folder)
-    img::String              # motif logo
+    img::String              # motif logo (grouped-page default view)
+    # Mutagenesis dual-view logos for the top-movers page: `img_reduced` is the
+    # reduced view (only the mutated fragments that differ from the backbone —
+    # the basis of region interactions), `img_region` the full-region view. Both
+    # `""` ⇒ single-card layout (convolution case).
+    img_reduced::String
+    img_region::String
     influence::String        # Shapley/influence plot
     yy_kde::String           # indicator (yy-KDE) plot
     texts::Vector{String}    # metadata text fields (rendered as HTML in the modal)
@@ -218,18 +224,49 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=t
         end
         "\n            <div class=\"top-mover-epistasis\">$epi</div>"
     end
+    # Dual-view (mutagenesis): two logo cards — reduced view then region view.
+    # Both open the same motif modal, each showing its own view. When the view
+    # paths are empty (convolution) fall back to the original single card.
+    dual = !isempty(e.img_reduced) && !isempty(e.img_region)
+    cards_html, row_class = if dual
+        (string(
+            "<div class=\"top-mover-card\" data-median=\"$(e.median)\" onclick=\"openTopMover($rowid, 'reduced')\">",
+            "<img src=\"$(e.img_reduced)\" alt=\"$name\" class=\"singleton-img\">",
+            "<span class=\"singleton-filter-overlay\">$name</span></div>",
+            "<div class=\"top-mover-card\" data-median=\"$(e.median)\" onclick=\"openTopMover($rowid, 'region')\">",
+            "<img src=\"$(e.img_region)\" alt=\"$name\" class=\"singleton-img\">",
+            "<span class=\"singleton-filter-overlay\">$name</span></div>"),
+         "top-mover-row dual")
+    else
+        (string(
+            "<div class=\"top-mover-card\" data-median=\"$(e.median)\" onclick=\"openTopMover($rowid)\">",
+            "<img src=\"$(e.img)\" alt=\"$name\" class=\"singleton-img\">",
+            "<span class=\"singleton-filter-overlay\">$name</span></div>"),
+         "top-mover-row")
+    end
     """
-    <div class="top-mover-row">
-        <div class="top-mover-card" data-median="$(e.median)" onclick="openTopMover($rowid)">
-            <img src="$(e.img)" alt="$name" class="singleton-img">
-            <span class="singleton-filter-overlay">$name</span>
-        </div>
+    <div class="$row_class">
+        $cards_html
         <div class="top-mover-meta">
             $name_html$epi_block
         </div>
         <div class="top-mover-wt">$(wt_track_html(e.wt_regions))</div>
     </div>"""
 end
+
+"""
+    top_mover_header_row_html() -> String
+
+A grid-aligned header row placed above a dual-view list so the two logo columns
+are self-labelled ("Reduced view" / "Region view").
+"""
+top_mover_header_row_html() = """
+    <div class="top-mover-row dual top-mover-header">
+        <div class="top-mover-colhead">Reduced view</div>
+        <div class="top-mover-colhead">Region view</div>
+        <div></div>
+        <div></div>
+    </div>"""
 
 """
     render_top_movers_page!(save_path; positives, negatives, page_title, nav_page_count, file)
@@ -279,16 +316,23 @@ function render_top_movers_page!(save_path::AbstractString;
 
     # rowid space: positives first, then negatives — matches the JS data array.
     all_rows = vcat(collect(positives), collect(negatives))
-    payload = [(img=e.img, influence=e.influence, yy_kde=e.yy_kde,
+    payload = [(img=e.img, img_reduced=e.img_reduced, img_region=e.img_region,
+                influence=e.influence, yy_kde=e.yy_kde,
                 title=e.display_name, texts=e.texts,
                 variant_pwms=e.variant_pwms, variant_labels=e.variant_labels,
                 variant_texts=e.variant_texts) for e in all_rows]
     data_js = "const topMoverData = " * JSON3.write(payload) * ";"
 
+    # Prepend the "Reduced view / Region view" column header once per non-empty
+    # list when any row uses the dual-view (mutagenesis) layout.
+    is_dual(e) = !isempty(e.img_reduced) && !isempty(e.img_region)
+    header = (any(is_dual, positives) || any(is_dual, negatives)) ?
+        top_mover_header_row_html() * "\n" : ""
+
     pos_html = isempty(positives) ? "<p class=\"top-mover-empty\">No positive motifs.</p>" :
-        join((top_mover_row_html(e, i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(positives)), "\n")
+        header * join((top_mover_row_html(e, i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(positives)), "\n")
     neg_html = isempty(negatives) ? "<p class=\"top-mover-empty\">No negative motifs.</p>" :
-        join((top_mover_row_html(e, length(positives) + i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(negatives)), "\n")
+        header * join((top_mover_row_html(e, length(positives) + i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(negatives)), "\n")
 
     html_rendered = Mustache.render(html_template_top_movers;
         protein_name=page_title,

@@ -1011,7 +1011,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
 
     // Self-contained modal: populate directly from topMoverData (no jsonData).
     let topMoverScroll = 0;
-    function openTopMover(idx) {
+    function openTopMover(idx, view) {
         const d = topMoverData[idx];
         if (!d) return;
         topMoverScroll = window.pageYOffset || document.documentElement.scrollTop;
@@ -1020,7 +1020,12 @@ html_template_top_movers = mt"""<!DOCTYPE html>
             openTopMoverMulti(d);
             return;
         }
-        document.getElementById('singletonModalImg').src = d.img;
+        // Dual-view (mutagenesis) rows: show the clicked card's own view
+        // (reduced / region); everything else falls back to the default logo.
+        let mainImg = d.img;
+        if (view === 'reduced' && d.img_reduced) mainImg = d.img_reduced;
+        else if (view === 'region' && d.img_region) mainImg = d.img_region;
+        document.getElementById('singletonModalImg').src = mainImg;
         document.getElementById('singletonModalImg').alt = d.title;
         document.getElementById('singletonModalInfluence').src = d.influence;
         document.getElementById('singletonModalKde').src = d.yy_kde || '';

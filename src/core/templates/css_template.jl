@@ -703,6 +703,29 @@ span.putBar {
     column-gap: 28px;
 }
 
+/* Dual-view rows (mutagenesis): two logo cards — reduced view + region view —
+   ahead of the meta and wild-type tracks. */
+.top-mover-row.dual {
+    grid-template-columns: 190px 190px 200px 1fr;
+}
+
+/* Column header row above a dual-view list. */
+.top-mover-header {
+    align-items: end;
+    margin-bottom: 2px;
+}
+
+.top-mover-colhead {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+    text-align: center;
+    width: 150px;                    /* match the card width so labels center over cards */
+}
+
 /* Left: clickable card. Reuses the singleton card look; border is set via JS. */
 .top-mover-card {
     width: 150px;

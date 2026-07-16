@@ -78,6 +78,7 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
             "",                                 # epistasis (none for singletons)
             WildTypeRegion[],                   # wt_regions (n/a for convolution)
             paths.png.rel,                      # img (motif logo)
+            "", "",                             # img_reduced/img_region (single-card: no dual view)
             paths.influence.rel,                # influence plot
             joinpath(motif_type, "yy_kde_intersect_$shown_index.png"),  # yy_kde
             collect(String, texts),             # texts

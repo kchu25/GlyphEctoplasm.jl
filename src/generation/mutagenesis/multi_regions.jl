@@ -770,6 +770,28 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         filter_by_reference=meta.reduction_on_ref
     )
 
+    # The top-movers page shows BOTH logo views side by side: the reduced view
+    # (filter_by_reference=true — only the mutated fragments that differ from the
+    # backbone, the basis of region interactions) and the full-region view
+    # (filter_by_reference=false). Above we rendered the grouped-page default
+    # (governed by `reduction_on_ref`); here we render the other view so both are
+    # available. `img_reduced`/`img_region` are the relative paths used by the row.
+    alt_png_abs = joinpath(meta.save_folder, file_name * "_altview.png")
+    alt_png_rel = joinpath(meta.motif_type, file_name * "_altview.png")
+    EntroPlots.save_logo_with_rect_gaps(
+        meta.count_matrices, meta.positions, meta.total_length,
+        alt_png_abs;
+        reference_pfms=meta.references,
+        dpi=meta.dpi,
+        rna=meta.use_rna,
+        xrotation=35,
+        protein=size(meta.count_matrices[1], 1) == 20,
+        uniform_color=true,
+        filter_by_reference=!meta.reduction_on_ref
+    )
+    img_reduced = meta.reduction_on_ref ? paths.png.rel : alt_png_rel
+    img_region  = meta.reduction_on_ref ? alt_png_rel : paths.png.rel
+
     save_influence_plot(meta.banzhafs, paths.influence.abs; xlim=meta.xlim)
 
     # Per-motif indicator plot + NND test (only when `pts` is supplied).
@@ -831,7 +853,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
             meta.motif_size == 1,
             interaction_str === nothing ? "" : interaction_str,
             motif_wt_regions(meta),
-            paths.png.rel, paths.influence.rel,
+            paths.png.rel, img_reduced, img_region, paths.influence.rel,
             joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),
             collect(String, json_motifs[mode_str][texts_str][1]),
             # No slider here: the mutagenesis page uses a different file

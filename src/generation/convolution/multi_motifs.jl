@@ -223,6 +223,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
                 interaction_summary_mode_str === nothing ? "" : interaction_summary_mode_str,  # epistasis
                 WildTypeRegion[],                   # wt_regions (n/a for convolution)
                 first_paths.png.rel,                # img (first variant logo)
+                "", "",                             # img_reduced/img_region (single-card: no dual view)
                 first_paths.influence.rel,          # influence plot
                 joinpath(motif_type, k_mode_str, "yy_kde_intersect.png"),  # yy_kde
                 collect(String, json_motifs[mode_str][texts_str][1]),       # texts
