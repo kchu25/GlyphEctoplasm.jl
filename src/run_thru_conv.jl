@@ -27,7 +27,10 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         protein_name::Union{String,Nothing}=nothing,  # shown atop the summary page when given
         optimize_pngs::Bool=true,
         png_colors::Int=64,
-        top_mover_min_count=5  # drop motifs whose cluster has < this many points from the summary page
+        top_mover_min_count=5, # drop motifs whose cluster has < this many points from the summary page
+        top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
+        top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
+        top_movers_label=nothing       # output/feature label stamped on every CSV row
         );
 
     # ── Sensitivity-analysis-only mode (skip all rendering) ────
@@ -130,6 +133,13 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         show_epistasis=false,       # convolution case: hide the epistasis line
         modal_scroll_fix=true       # give the detail popup its own scrollbar
     )
+
+    # Same ranking, dumped at full precision for cross-dataset comparison.
+    if top_movers_csv !== nothing
+        write_top_movers_csv(top_movers_csv, positives, negatives;
+            protein_name=protein_name, label=top_movers_label,
+            append=top_movers_csv_append)
+    end
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)
     optimize_pngs && optimize_pngs!(save_path; ncolors=png_colors)

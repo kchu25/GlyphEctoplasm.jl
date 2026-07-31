@@ -348,4 +348,93 @@ function render_top_movers_page!(save_path::AbstractString;
     end
 end
 
-export TopMoverEntry, select_top_movers, render_top_movers_page!
+# Numeric coercion for the CSV columns: `parse_epistasis` hands back strings (it
+# feeds the HTML panel), and absent fields must stay empty rather than become 0.
+_tm_num(::Nothing) = missing
+_tm_num(s::AbstractString) = something(tryparse(Float64, s), missing)
+
+"""
+    top_movers_dataframe(positives, negatives; protein_name=nothing, label=nothing) -> DataFrame
+
+Flatten the two top-mover columns into one tidy table, one row per motif, at full
+precision — the HTML panel rounds for display, this does not.
+
+Rows carry `direction` (`"positive"`/`"negative"`) and a 1-based `rank` within
+that direction, so the two columns stay distinguishable after datasets are
+concatenated. `protein_name` and `label` are stamped onto every row so that
+`vcat`-ing the per-dataset files yields a self-describing run-level table.
+
+The epistasis string is split back into numeric `epistasis_coef` /
+`epistasis_pvalue` (`missing` for singletons, which have no interaction term).
+Wild-type context is flattened to `wt_seq` (region strings, `;`-joined) and
+`mut_positions` (absolute 1-based positions whose consensus differs from wild
+type, `;`-joined) — enough to line up recurring positions across datasets.
+
+Note the table can hold fewer than `n` rows per direction, or none: motifs whose
+cluster falls under `select_top_movers`'s `min_count` are dropped before ranking.
+"""
+function top_movers_dataframe(positives::AbstractVector{TopMoverEntry},
+                              negatives::AbstractVector{TopMoverEntry};
+                              protein_name::Union{AbstractString,Nothing}=nothing,
+                              label::Union{AbstractString,Nothing}=nothing)
+    # Columns are declared up front (rather than inferred from pushed rows) so a
+    # dataset with no surviving motifs still writes a full header — otherwise the
+    # empty file would derail a glob-and-vcat over the run.
+    df = DataFrame(
+        protein_name     = String[],
+        label            = String[],
+        direction        = String[],
+        rank             = Int[],
+        display_name     = String[],
+        group_label      = String[],
+        span             = String[],
+        is_singleton     = Bool[],
+        count            = Int[],
+        shapley_median   = Float64[],
+        cluster_median   = Float64[],
+        cluster_nnd      = Float64[],
+        nnd_pvalue       = Float64[],
+        epistasis_coef   = Union{Missing,Float64}[],
+        epistasis_pvalue = Union{Missing,Float64}[],
+        wt_seq           = String[],
+        mut_positions    = String[],
+    )
+    pname = protein_name === nothing ? "" : String(protein_name)
+    lbl   = label === nothing ? "" : String(label)
+    for (direction, entries) in (("positive", positives), ("negative", negatives))
+        for (rank, e) in enumerate(entries)
+            coef, pval = parse_epistasis(e.epistasis)
+            mut_pos = Int[]
+            for reg in e.wt_regions, (j, flag) in enumerate(reg.mutated)
+                flag && push!(mut_pos, reg.start + j - 1)
+            end
+            push!(df, (pname, lbl, direction, rank, e.display_name, e.group_label,
+                       e.span, e.is_singleton, e.count, e.median, e.cluster_median,
+                       e.cluster_nnd, e.nnd_p, _tm_num(coef), _tm_num(pval),
+                       join((reg.wt for reg in e.wt_regions), ";"), join(mut_pos, ";")))
+        end
+    end
+    return df
+end
+
+"""
+    write_top_movers_csv(path, positives, negatives; protein_name=nothing, label=nothing, append=false)
+
+Write [`top_movers_dataframe`](@ref) to `path`, creating parent directories as
+needed. `append=true` adds rows without repeating the header, so a multi-output
+run can accumulate every label into one per-dataset file. Returns the DataFrame.
+"""
+function write_top_movers_csv(path::AbstractString,
+                              positives::AbstractVector{TopMoverEntry},
+                              negatives::AbstractVector{TopMoverEntry};
+                              protein_name::Union{AbstractString,Nothing}=nothing,
+                              label::Union{AbstractString,Nothing}=nothing,
+                              append::Bool=false)
+    df = top_movers_dataframe(positives, negatives; protein_name=protein_name, label=label)
+    mkpath(dirname(path))
+    CSV.write(path, df; append=append, writeheader=!append)
+    return df
+end
+
+export TopMoverEntry, select_top_movers, render_top_movers_page!,
+       top_movers_dataframe, write_top_movers_csv

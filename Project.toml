@@ -1,6 +1,6 @@
 name = "GlyphEctoplasm"
 uuid = "8227acd8-3ec4-4c13-8000-5272694d2f9b"
-version = "0.3.9"
+version = "0.4.0"
 authors = ["Shane Kuei-Hsien Chu (skchu@wustl.edu)"]
 
 [deps]

@@ -17,6 +17,9 @@ function plot_motifs_mut_case(data, m,
         bin_count=10,           # equal-width bins for Shapley median and cluster median
         sort_by_pareto=false,   # fallback when sort_by_bins=false (Pareto on |median|/count)
         top_mover_min_count=5,  # drop motifs whose cluster has < this many points from the summary page
+        top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
+        top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
+        top_movers_label=nothing,      # output/feature label stamped on every CSV row
         nav_page_count=4,
         use_unified=true,
         enable_colored_borders=true,
@@ -122,6 +125,13 @@ function plot_motifs_mut_case(data, m,
         protein_name=protein_name, protein_length=protein_length,
         wild_type=wild_type
     )
+
+    # Same ranking, dumped at full precision for cross-dataset comparison.
+    if top_movers_csv !== nothing
+        write_top_movers_csv(top_movers_csv, positives, negatives;
+            protein_name=protein_name, label=top_movers_label,
+            append=top_movers_csv_append)
+    end
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)
     optimize_pngs && optimize_pngs!(save_path; ncolors=png_colors)
