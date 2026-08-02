@@ -26,12 +26,20 @@ function plot_motifs_mut_case(data, m,
         optimize_pngs::Bool=true,
         png_colors::Int=64,
         gc_every::Int=25,      # incremental GC + Plots.closeall() every N motifs to cap RSS; 0 disables
-        bg_max_points=nothing  # cap the indicator-plot background cloud to this many points; nothing = no cap
+        bg_max_points=nothing, # cap the indicator-plot background cloud to this many points; nothing = no cap
+        points_only::Bool=false # dump indicator_points.csv and return, skipping all rendering
     )
     # Population index basis for the per-motif indicator plots. Must share the
     # ordering of `pts` (same contract as the convolution case). Defaults to the
     # subset the mutation pipeline already filters on.
     all_idx = all_indices === nothing ? data.raw_data.most_common_length_indices : all_indices
+
+    # Persist the indicator plots' point cloud before anything is drawn, so the
+    # yy-KDE figures stay reconstructible from files alone. Cheap (one CSV) and
+    # first, so it survives a render that fails partway through.
+    save_indicator_points(pts, all_idx, save_path)
+    points_only && return nothing
+
     # Single configuration object for all mutation region analysis
     m_config = MutationRegionConfig(data;
         filter_len = m.receptive_field,

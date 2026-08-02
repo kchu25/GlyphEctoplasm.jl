@@ -74,6 +74,7 @@ export BanzhafPlots
 # Core Rendering Utilities
 # =============================================================================
 include(joinpath("core", "logo_saving.jl"))
+include(joinpath("core", "points_dump.jl"))
 include(joinpath("core", "json_html_dict.jl"))
 include(joinpath("core", "png_optimize.jl"))
 include(joinpath("core", "constants.jl"))
@@ -120,6 +121,9 @@ export render_and_save_outputs!, render_generalization_page!,
 
 # PNG size optimization
 export optimize_pngs!, quantize_png!
+
+# Indicator-plot point cloud (rebuilds the yy-KDE figures from files alone)
+export save_indicator_points
 
 # Sensitivity analysis
 export run_nnd_sensitivity_analysis, run_nnd_sensitivity_analysis_null, SENSITIVITY_KS

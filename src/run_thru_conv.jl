@@ -30,8 +30,15 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         top_mover_min_count=5, # drop motifs whose cluster has < this many points from the summary page
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
-        top_movers_label=nothing       # output/feature label stamped on every CSV row
+        top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        points_only::Bool=false        # dump indicator_points.csv and return, skipping all rendering
         );
+
+    # Persist the indicator plots' point cloud before anything is drawn, so the
+    # yy-KDE figures stay reconstructible from files alone. Cheap (one CSV) and
+    # first, so it survives a render that fails partway through.
+    save_indicator_points(pts, all_indices, save_path)
+    points_only && return nothing
 
     # ── Sensitivity-analysis-only mode (skip all rendering) ────
     if sensitivity_analysis
