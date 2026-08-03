@@ -555,34 +555,63 @@ function parse_span_positions(span::AbstractString)
 end
 
 """
-    observed_residue_string(cmat; use_rna=false) -> String
+    motif_alphabet(nrows; use_rna=false) -> Union{Vector{Char},Nothing}
 
-The motif's own consensus over a count-matrix window: one character per column,
-taken as `argmax` down the column and mapped through the alphabet the sequences
-were encoded with. Row count picks the alphabet — 20 rows means protein
-(`SEQ2EXPdata.AMINO_ACID_LETTERS`, alphabetical, matching the one-hot encoder),
-4 means nucleotide. Columns whose argmax falls outside the alphabet (or an
-all-zero column) become `_placeholder_char_`, which
-[`mutation_description`](@ref) skips rather than reporting a bogus substitution.
-
-This is what a mutated position changes *to*, the counterpart of the wild-type
-residue at the same column.
+Alphabet matching a count matrix's row order: 20 rows is protein
+(`SEQ2EXPdata.AMINO_ACID_LETTERS`, alphabetical — the order the one-hot encoder
+uses), 4 rows is nucleotide. `nothing` for anything else.
 """
-function observed_residue_string(cmat; use_rna::Bool=false)
+function motif_alphabet(nrows::Integer; use_rna::Bool=false)
+    nrows == 20 && return SEQ2EXPdata.AMINO_ACID_LETTERS
+    nrows == 4 && return [(use_rna ? _ind2dna_str_rna : _ind2dna_str_)[i] for i in 1:4]
+    return nothing
+end
+
+"""
+    observed_residue_string(cmat, ref=nothing; use_rna=false) -> String
+
+The residue each column *mutates to*: one character per column, taken as the
+mutated letter carrying the most information content — which, in a sequence logo,
+is simply the tallest red letter in that column's stack.
+
+Given a reference (backbone) matrix `ref`, the reference's own row is excluded
+before taking the argmax. That exclusion is the whole point. The column's overall
+argmax is usually the wild-type residue itself — EntroPlots draws that one blue
+(`ref_match_color`) and every other residue dark red (`ref_mismatch_color`) — so
+reading the plain argmax reports the backbone back as though it were a
+substitution. On PIN1 that made half of every generated sentence a no-op
+("site 33 to S" where S *is* the wild type).
+
+Ranking by information content is equivalent to ranking by probability within a
+column: EntroPlots draws letter `k` at height `ic * col[k]`, where `ic` is a
+per-column constant, so the tallest letter is the highest-probability one and no
+entropy term has to be recomputed here. Counts are used unnormalised for the same
+reason — per-column normalisation is monotone and cannot change the argmax.
+
+Columns with no mutated mass at all (every sequence carries the wild type), and
+matrices whose row count matches no known alphabet, yield `_placeholder_char_`,
+which [`mutation_description`](@ref) skips rather than inventing a substitution.
+With `ref === nothing` this degrades to the plain column argmax.
+"""
+function observed_residue_string(cmat, ref=nothing; use_rna::Bool=false)
+    alphabet = motif_alphabet(size(cmat, 1); use_rna=use_rna)
+    alphabet === nothing && return String(fill(_placeholder_char_, size(cmat, 2)))
     nrow = size(cmat, 1)
-    alphabet = if nrow == 20
-        SEQ2EXPdata.AMINO_ACID_LETTERS
-    elseif nrow == 4
-        [_ind2dna_str_[i] for i in 1:4] |> x -> use_rna ?
-            [_ind2dna_str_rna[i] for i in 1:4] : x
-    else
-        return String(fill(_placeholder_char_, size(cmat, 2)))
-    end
     chars = Vector{Char}(undef, size(cmat, 2))
     for j in 1:size(cmat, 2)
         col = view(cmat, :, j)
-        i = argmax(col)
-        chars[j] = (col[i] > 0 && i <= length(alphabet)) ? alphabet[i] : _placeholder_char_
+        # Row holding the backbone residue for this column, when we have a
+        # reference to compare against; skipped over when picking the argmax.
+        skip = (ref !== nothing && j <= size(ref, 2)) ? argmax(view(ref, :, j)) : 0
+        best, best_val = 0, zero(eltype(cmat))
+        for i in 1:nrow
+            i == skip && continue
+            if best == 0 || col[i] > best_val
+                best, best_val = i, col[i]
+            end
+        end
+        chars[j] = (best > 0 && best_val > 0 && best <= length(alphabet)) ?
+                   alphabet[best] : _placeholder_char_
     end
     return String(chars)
 end
@@ -596,13 +625,22 @@ Build the wild-type amino-acid track(s) for a motif's summary card: one
 the motif's own observed consensus over the same window (what each mutated
 column changes *to* — see [`observed_residue_string`](@ref)).
 
-Arrow columns come from the motif's `span` — the significant (post-reduction)
-positions across *all* regions, so a 4-region motif gets arrows in every region,
-not just the first. When the span marks the whole window (e.g.
-`reduction_on_ref=false`, where it's one full range) we fall back to comparing the
-observed consensus against the wild type (`argmax(count) != argmax(reference)`)
-so the entire window isn't arrowed. Returns an empty vector if the consensus is
-unavailable.
+A column is marked only when it is **both** in the motif's `span` — the
+significant (post-reduction) positions across *all* regions, so a 4-region motif
+gets arrows in every region, not just the first — **and** it actually carries a
+mutation, meaning some sequence holds a residue other than the backbone's (the
+logo draws such letters dark red, the backbone's own letter blue).
+
+Both halves are needed. Span membership alone marks positions the motif merely
+depends on, including ones where every sequence holds the wild type; those are
+pure blue and are not substitutions. The mutation test alone would mark
+differences anywhere in the window, ignoring the reduction. When the span already
+covers the entire window (e.g. `reduction_on_ref=false`, where it is one full
+range) the stricter modal-residue test carries it on its own so the whole window
+isn't arrowed. With no reference matrix to compare against, span membership is
+all there is and is used as-is.
+
+Returns an empty vector if the consensus is unavailable.
 """
 function motif_wt_regions(meta)
     regions = WildTypeRegion[]
@@ -622,16 +660,45 @@ function motif_wt_regions(meta)
         (startp < 1 || startp + w - 1 > L) && continue
         wt = String(consensus[startp:startp + w - 1])
         in_frag = Bool[(startp + j - 1) in frag for j in 1:w]
-        mutated = if !isempty(frag) && !all(in_frag)
-            in_frag                              # span pinpoints the regions
-        elseif r <= length(refs)                 # fallback: observed vs wild type
-            ref = refs[r]; rw = min(w, size(ref, 2))
-            flags = Bool[argmax(view(cmat, :, j)) != argmax(view(ref, :, j)) for j in 1:rw]
-            length(flags) < w ? vcat(flags, falses(w - length(flags))) : flags
+
+        ref = r <= length(refs) ? refs[r] : nothing
+
+        # Two per-column tests against the backbone, both derived from the logo's
+        # own colouring (blue = the reference residue, dark red = anything else):
+        #
+        #   has_mut  any red mass at all — some sequence carries a non-wild-type
+        #            residue here. A column failing this is pure backbone and is
+        #            not a mutation site however significant the reduction found it.
+        #   differs  the column's *tallest* letter is red, i.e. the motif's modal
+        #            residue is not the wild type. Stricter than `has_mut`.
+        has_mut, differs = if ref === nothing
+            nothing, nothing
         else
-            in_frag
+            hm = falses(w); df = falses(w)
+            for j in 1:min(w, size(ref, 2))
+                skip = argmax(view(ref, :, j))
+                hm[j] = any(i -> i != skip && cmat[i, j] > 0, 1:size(cmat, 1))
+                df[j] = argmax(view(cmat, :, j)) != skip
+            end
+            hm, df
         end
-        obs = observed_residue_string(cmat;
+
+        # A mutation site is a significant position that actually carries a
+        # mutation. Span membership alone is not enough: the reduction keeps
+        # positions the motif depends on, including ones where every sequence
+        # holds the wild type — reporting those as substitutions was wrong (on
+        # PIN1 it made half of every sentence a no-op). Note the gate is
+        # `has_mut`, not `differs`: a column where most sequences keep the wild
+        # type but a mutated subset drives the effect is precisely an interesting
+        # site, and `observed_residue_string` names its tallest red letter.
+        mutated = if has_mut === nothing
+            in_frag                                  # no reference: span is all we have
+        elseif !isempty(frag) && !all(in_frag)
+            in_frag .& has_mut                       # span pinpoints → its columns that carry mutations
+        else
+            differs                                  # span covers the window → modal-residue test, as before
+        end
+        obs = observed_residue_string(cmat, ref;
             use_rna = hasproperty(meta, :use_rna) ? meta.use_rna : false)
         push!(regions, WildTypeRegion(wt, startp, mutated, obs))
     end

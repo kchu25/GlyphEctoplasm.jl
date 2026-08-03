@@ -45,13 +45,16 @@ function render_and_save_outputs!(json_motifs::Dict, html_dict, j::Integer;
         println(io, ";")
     end
     
-    # Copy CSS (once)
+    # Stylesheet. Rewritten on every render, not just when absent: it is a build
+    # artifact of `css_template`, and the HTML/JS emitted alongside it always is.
+    # Skipping the write when the file existed meant re-rendering into an old
+    # result folder silently kept that folder's original stylesheet — so any rule
+    # added to the template since (e.g. the popup's interpretation block) never
+    # reached pages that were re-rendered rather than created fresh, and the
+    # markup referenced classes the CSS did not define.
     css_path = joinpath(save_path, "styles.css")
-    if !isfile(css_path)
-        out = Mustache.render(css_template)
-        open(css_path, "w") do io
-            print(io, out)
-        end
+    open(css_path, "w") do io
+        print(io, Mustache.render(css_template))
     end
     
     # Choose template: if use_unified is true, use html_template_unified
