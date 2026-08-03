@@ -164,9 +164,26 @@ function openSingletonModal(index) {
     document.getElementById('singletonModalText4').innerHTML = data.text4 || '';
     document.getElementById('singletonModalText5').innerHTML = data.text5 || '';
     document.getElementById('singletonModalText6').innerHTML = data.text6 || '';
-    
+    setMotifDescription('singletonModalDesc', data.text7);
+
     // Show modal
     document.getElementById('singletonModal').style.display = 'block';
+}
+
+// Plain-language interpretation block (text slot 7, mutation case only). Hidden
+// entirely when absent so the convolution popup never shows an empty section.
+function setMotifDescription(elId, text) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (text && String(text).trim()) {
+        el.innerHTML = '<span class="motif-description-label">Interpretation</span>' +
+                       '<span class="motif-description-text"></span>';
+        el.querySelector('.motif-description-text').textContent = text;
+        el.style.display = '';
+    } else {
+        el.innerHTML = '';
+        el.style.display = 'none';
+    }
 }
 
 function closeSingletonModal() {
@@ -249,6 +266,7 @@ function updateMultiModalContent(sliderValue, images, labels, texts, baseFolder)
     document.getElementById('multiMotifText4').innerHTML = texts[sliderValue][3] || '';
     document.getElementById('multiMotifText5').innerHTML = texts[sliderValue][4] || '';
     document.getElementById('multiMotifText6').innerHTML = texts[sliderValue][5] || '';
+    setMotifDescription('multiMotifDesc', texts[sliderValue][6]);
     document.getElementById('multiMotifRangeLabel').innerHTML = titleText;
     
     // Update fixed distance influence plot (changes with slider)

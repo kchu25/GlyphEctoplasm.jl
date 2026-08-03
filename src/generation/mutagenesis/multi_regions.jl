@@ -555,11 +555,46 @@ function parse_span_positions(span::AbstractString)
 end
 
 """
+    observed_residue_string(cmat; use_rna=false) -> String
+
+The motif's own consensus over a count-matrix window: one character per column,
+taken as `argmax` down the column and mapped through the alphabet the sequences
+were encoded with. Row count picks the alphabet — 20 rows means protein
+(`SEQ2EXPdata.AMINO_ACID_LETTERS`, alphabetical, matching the one-hot encoder),
+4 means nucleotide. Columns whose argmax falls outside the alphabet (or an
+all-zero column) become `_placeholder_char_`, which
+[`mutation_description`](@ref) skips rather than reporting a bogus substitution.
+
+This is what a mutated position changes *to*, the counterpart of the wild-type
+residue at the same column.
+"""
+function observed_residue_string(cmat; use_rna::Bool=false)
+    nrow = size(cmat, 1)
+    alphabet = if nrow == 20
+        SEQ2EXPdata.AMINO_ACID_LETTERS
+    elseif nrow == 4
+        [_ind2dna_str_[i] for i in 1:4] |> x -> use_rna ?
+            [_ind2dna_str_rna[i] for i in 1:4] : x
+    else
+        return String(fill(_placeholder_char_, size(cmat, 2)))
+    end
+    chars = Vector{Char}(undef, size(cmat, 2))
+    for j in 1:size(cmat, 2)
+        col = view(cmat, :, j)
+        i = argmax(col)
+        chars[j] = (col[i] > 0 && i <= length(alphabet)) ? alphabet[i] : _placeholder_char_
+    end
+    return String(chars)
+end
+
+"""
     motif_wt_regions(meta) -> Vector{WildTypeRegion}
 
 Build the wild-type amino-acid track(s) for a motif's summary card: one
 `WildTypeRegion` per count-matrix window, holding the full WT window string
-(sliced straight from `data.raw_data.consensus`) and a per-column arrow flag.
+(sliced straight from `data.raw_data.consensus`), a per-column arrow flag, and
+the motif's own observed consensus over the same window (what each mutated
+column changes *to* — see [`observed_residue_string`](@ref)).
 
 Arrow columns come from the motif's `span` — the significant (post-reduction)
 positions across *all* regions, so a 4-region motif gets arrows in every region,
@@ -596,7 +631,9 @@ function motif_wt_regions(meta)
         else
             in_frag
         end
-        push!(regions, WildTypeRegion(wt, startp, mutated))
+        obs = observed_residue_string(cmat;
+            use_rna = hasproperty(meta, :use_rna) ? meta.use_rna : false)
+        push!(regions, WildTypeRegion(wt, startp, mutated, obs))
     end
     return regions
 end
@@ -757,7 +794,8 @@ A throw propagates to the caller's per-motif `try` (which records `diag.n_failed
 """
 function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
         pts = nothing, all_indices = nothing, nnd_k = 15,
-        interaction_summaries = nothing, top_movers_out = nothing, bg_max_points = nothing)
+        interaction_summaries = nothing, top_movers_out = nothing, bg_max_points = nothing,
+        feature_label = nothing)
     EntroPlots.save_logo_with_rect_gaps(
         meta.count_matrices, meta.positions, meta.total_length,
         paths.png.abs;
@@ -823,13 +861,19 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         interaction_str !== nothing && (diag.n_interaction_hits += 1)
     end
 
+    # Wild-type context, computed once: it backs both the popup's plain-language
+    # interpretation (text slot 7) and the summary row's residue track.
+    wt_regions = motif_wt_regions(meta)
+    description = mutation_description(wt_regions, float(meta.median), feature_label)
+
     texts = build_metadata_texts(
         nothing, paths, meta.median, meta.count;
         use_rna=meta.use_rna,
         relaxed_median=nothing,
         show_meme_and_csv=false,
         interaction_summary_mode_str=interaction_str,
-        nnd_result=nnd_result
+        nnd_result=nnd_result,
+        description=description
     )
 
     mode_prefix = isempty(meta.group_id) ? "mode_" : "mode_$(meta.group_id)_"
@@ -852,7 +896,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
             display_name, meta.button_text, meta.span, cp,
             meta.motif_size == 1,
             interaction_str === nothing ? "" : interaction_str,
-            motif_wt_regions(meta),
+            wt_regions,
             paths.png.rel, img_reduced, img_region, paths.influence.rel,
             joinpath(meta.motif_type, "yy_kde_intersect_$(file_name).png"),
             collect(String, json_motifs[mode_str][texts_str][1]),
@@ -902,7 +946,8 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         sort_by_bins = true, bin_count = 10,
         pts = nothing, all_indices = nothing, interaction_summaries = nothing,
         nnd_k = 15, top_movers_out = nothing,
-        gc_every::Int = 25, bg_max_points = nothing)
+        gc_every::Int = 25, bg_max_points = nothing,
+        feature_label = nothing)   # assay name (+units) for the interpretation sentence
 
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -940,7 +985,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                 json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
                 pts=pts, all_indices=all_indices, nnd_k=nnd_k,
                 interaction_summaries=interaction_summaries, top_movers_out=top_movers_out,
-                bg_max_points=bg_max_points
+                bg_max_points=bg_max_points, feature_label=feature_label
             )
             push!(registered_names, display_name)  # Track registration
             current_idx += 1

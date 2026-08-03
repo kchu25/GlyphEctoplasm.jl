@@ -77,7 +77,8 @@ function plot_motifs_mut_case(data, m,
         nnd_k = nnd_k,                     # k for the cluster-tightness (NND) permutation test
         top_movers_out = top_movers,       # Collect summary rows for the landing page
         gc_every = gc_every,               # Periodic incremental GC to bound peak RSS on large runs
-        bg_max_points = bg_max_points      # Optional cap on indicator-plot background points (nothing = off)
+        bg_max_points = bg_max_points,     # Optional cap on indicator-plot background points (nothing = off)
+        feature_label = top_movers_label   # Assay name (+units) for each popup's interpretation line
     )
 
     render_and_save_outputs!(json_motifs, html_dict, 1;
@@ -131,7 +132,7 @@ function plot_motifs_mut_case(data, m,
         positives=positives, negatives=negatives,
         page_title=page_title, nav_page_count=nav_page_count,
         protein_name=protein_name, protein_length=protein_length,
-        wild_type=wild_type
+        wild_type=wild_type, feature_label=top_movers_label
     )
 
     # Same ranking, dumped at full precision for cross-dataset comparison.

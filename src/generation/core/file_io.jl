@@ -273,14 +273,21 @@ end
                         use_rna=false, relaxed_median=nothing, show_meme_and_csv=true)
 
 Build text entries for JSON metadata display.
-Returns array of formatted strings for influence median, construction info, 
+Returns array of formatted strings for influence median, construction info,
 consensus, and file links.
+
+`description` (mutation case) is the plain-language interpretation sentence — see
+`mutation_description` — appended as a 7th element when non-empty. The grouped
+page renders slot 7 as its own "Interpretation" block in the card popup. Left
+`nothing` (the convolution default) the vector stays 6 long and no such block
+appears.
 """
-function build_metadata_texts(pfm, paths, median_val, count_val; 
+function build_metadata_texts(pfm, paths, median_val, count_val;
                              interaction_summary_mode_str=nothing,
                              use_rna=false, relaxed_median=nothing,
                              show_meme_and_csv=true,
-                             nnd_result=nothing)
+                             nnd_result=nothing,
+                             description=nothing)
 
     @assert !isnothing(count_val) "number of counts used to construct the logo must be provided"
     if !isnothing(pfm)                             
@@ -352,7 +359,14 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
         string(nnd_str, " &nbsp;|&nbsp; ", pval_str, cm_part)
     end
 
-    return [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, variance_row]
+    # Slot 7 is the plain-language interpretation (mutation case). Appended only
+    # when non-empty so the conv case keeps its 6-element vector and the grouped
+    # page's `text7` stays absent rather than rendering an empty block.
+    texts = [influence_median, construct_str, consensus_str, meme_csv_combined, interact_part, variance_row]
+    if description !== nothing && !isempty(strip(String(description)))
+        push!(texts, String(description))
+    end
+    return texts
 end
 
 export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts, nnd_permutation_test_1d, nnd_sensitivity_batch_1d

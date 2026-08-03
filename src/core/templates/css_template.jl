@@ -1111,6 +1111,38 @@ span.putBar {
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
 }
 
+/* Plain-language interpretation block in the card popups. Deliberately set
+   apart from the .singleton-info-item / .multi-info-item metadata rows: this is
+   the one line that reads as a sentence rather than a statistic, so it gets an
+   accent rule and a small caps label instead of another white card. Hidden by
+   the JS (display:none) when a motif has no sentence. */
+.motif-description {
+    background-color: #f8fafc;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    margin: 10px 0 6px 0;
+    border-radius: 10px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-left: 3px solid #64748b;
+}
+
+.motif-description-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 5px;
+}
+
+.motif-description-text {
+    display: block;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #1e293b;
+}
+
 .singleton-info-item strong,
 .singleton-info-item b {
     color: #0f172a;

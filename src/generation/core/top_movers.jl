@@ -11,17 +11,90 @@ for both the mutagenesis and (later) the convolution case.
 """
 
 """
-    WildTypeRegion(wt, start, mutated)
+    WildTypeRegion(wt, start, mutated, obs)
 
 One region's wild-type amino-acid window for the summary card: the full WT string
-`wt` (un-abbreviated), the 1-based `start` position of its first residue, and a
+`wt` (un-abbreviated), the 1-based `start` position of its first residue, a
 per-column `mutated` flag (true where the motif's observed consensus differs from
-the wild type). The panel draws one up-arrow under each mutated residue.
+the wild type), and `obs`, the motif's own observed consensus over the same
+window. The panel draws one up-arrow under each mutated residue.
+
+`obs` is what the motif mutates *to*: column `j` sits at sequence position
+`start + j - 1`, carries wild-type residue `wt[j]`, and the motif substitutes
+`obs[j]` there. Together with `mutated` that is everything
+[`mutation_description`](@ref) needs to state the substitution in words.
 """
 struct WildTypeRegion
     wt::String
     start::Int
     mutated::Vector{Bool}
+    obs::String
+end
+
+"""
+    mutation_description(regions, median, label) -> String
+
+Plain-language summary of what a mutation motif does, e.g.
+
+    Mutations at sites 66, 69, 72 to K, L, P respectively increase ddG_ML_float (kcal/mol).
+
+Sites are the arrowed (mutated) columns of `regions`, in ascending position
+order across every region — so a multi-region motif contributes all of its
+sites, not just the first region's. Each site's residue is the motif's observed
+consensus there (`WildTypeRegion.obs`), i.e. what the position mutates *to*.
+
+Direction comes from the sign of `median` (the motif's Shapley median): positive
+reads "increase", negative "decrease". `label` is the feature/assay name shown
+verbatim, units included; when it is `nothing` or blank the sentence falls back
+to "the measured value".
+
+Returns `""` when there is nothing to describe — no regions, no arrowed columns,
+or a zero/NaN median — so callers can treat empty as "omit the section".
+
+Grammar is singular for a lone site ("Mutation at site 66 to K increases …") and
+drops the "respectively", which only makes sense for a list.
+
+!!! note "Where the residues come from"
+    The observed residue is `argmax` over the motif's count-matrix column, mapped
+    through the alphabet the sequences were encoded with — `AMINO_ACID_LETTERS`
+    (20 rows, alphabetical) for protein, A/C/G/T(U) for nucleotide. It is the
+    motif's *modal* residue, not a per-sequence call, so a motif whose column is
+    split across several residues is summarised by its most common one.
+"""
+function mutation_description(regions::AbstractVector{WildTypeRegion},
+        median::Real, label::Union{AbstractString,Nothing})
+    isempty(regions) && return ""
+    (isnan(median) || median == 0) && return ""
+
+    sites = Int[]
+    residues = Char[]
+    for reg in regions
+        for j in 1:min(length(reg.mutated), length(reg.obs))
+            reg.mutated[j] || continue
+            ch = reg.obs[j]
+            ch == _placeholder_char_ && continue   # no confident call at this column
+            push!(sites, reg.start + j - 1)
+            push!(residues, ch)
+        end
+    end
+    isempty(sites) && return ""
+
+    # Ascending by position, so a multi-region motif reads left to right along
+    # the sequence rather than in region-construction order.
+    ord = sortperm(sites)
+    sites, residues = sites[ord], residues[ord]
+
+    what = (label === nothing || isempty(strip(String(label)))) ?
+           "the measured value" : strip(String(label))
+    verb_up = median > 0
+
+    if length(sites) == 1
+        return string("Mutation at site ", sites[1], " to ", residues[1], " ",
+                      verb_up ? "increases" : "decreases", " ", what, ".")
+    end
+    return string("Mutations at sites ", join(sites, ", "), " to ",
+                  join(residues, ", "), " respectively ",
+                  verb_up ? "increase" : "decrease", " ", what, ".")
 end
 
 """
@@ -274,12 +347,20 @@ top_mover_header_row_html() = """
 Write the top-movers landing page to `save_path/file` (default `index.html`).
 Reuses `styles.css` (already emitted by the grouped-page render). `positives`
 and `negatives` are the vectors returned by [`select_top_movers`](@ref).
+
+`feature_label` is the assay/feature name (units included, e.g.
+`"ddG_ML_float (kcal/mol)"`). When given, each row's popup gains a plain-language
+interpretation line built by [`mutation_description`](@ref) — *"Mutations at
+sites 66, 69, 72 to K, L, P respectively increase ddG_ML_float (kcal/mol)."* The
+sentence is omitted for motifs with no wild-type context, so the convolution case
+simply never shows it.
 """
 function render_top_movers_page!(save_path::AbstractString;
         positives::AbstractVector{TopMoverEntry},
         negatives::AbstractVector{TopMoverEntry},
         page_title::AbstractString="n/a",
         nav_page_count::Integer=4,
+        feature_label::Union{AbstractString,Nothing}=nothing,
         protein_name::Union{AbstractString,Nothing}=nothing,
         protein_length::Union{Integer,Nothing}=nothing,
         wild_type::Union{AbstractString,Nothing}=nothing,  # full WT sequence → adds a copy button by the title
@@ -319,6 +400,7 @@ function render_top_movers_page!(save_path::AbstractString;
     payload = [(img=e.img, img_reduced=e.img_reduced, img_region=e.img_region,
                 influence=e.influence, yy_kde=e.yy_kde,
                 title=e.display_name, texts=e.texts,
+                description=mutation_description(e.wt_regions, e.median, feature_label),
                 variant_pwms=e.variant_pwms, variant_labels=e.variant_labels,
                 variant_texts=e.variant_texts) for e in all_rows]
     data_js = "const topMoverData = " * JSON3.write(payload) * ";"
@@ -370,6 +452,13 @@ Wild-type context is flattened to `wt_seq` (region strings, `;`-joined) and
 `mut_positions` (absolute 1-based positions whose consensus differs from wild
 type, `;`-joined) — enough to line up recurring positions across datasets.
 
+`description` carries the same plain-language sentence the card's popup shows
+(see [`mutation_description`](@ref)) — e.g. *"Mutations at sites 66, 69, 72 to
+K, L, P respectively increase ddG_ML_float (kcal/mol)."* — so the interpretation
+travels with the table instead of living only in the rendered HTML. It is `""`
+for motifs with no wild-type context (the convolution case) and for any motif
+whose columns yield no confident residue call.
+
 Note the table can hold fewer than `n` rows per direction, or none: motifs whose
 cluster falls under `select_top_movers`'s `min_count` are dropped before ranking.
 """
@@ -398,6 +487,7 @@ function top_movers_dataframe(positives::AbstractVector{TopMoverEntry},
         epistasis_pvalue = Union{Missing,Float64}[],
         wt_seq           = String[],
         mut_positions    = String[],
+        description      = String[],
     )
     pname = protein_name === nothing ? "" : String(protein_name)
     lbl   = label === nothing ? "" : String(label)
@@ -411,7 +501,8 @@ function top_movers_dataframe(positives::AbstractVector{TopMoverEntry},
             push!(df, (pname, lbl, direction, rank, e.display_name, e.group_label,
                        e.span, e.is_singleton, e.count, e.median, e.cluster_median,
                        e.cluster_nnd, e.nnd_p, _tm_num(coef), _tm_num(pval),
-                       join((reg.wt for reg in e.wt_regions), ";"), join(mut_pos, ";")))
+                       join((reg.wt for reg in e.wt_regions), ";"), join(mut_pos, ";"),
+                       mutation_description(e.wt_regions, e.median, label)))
         end
     end
     return df

@@ -295,6 +295,7 @@ html_template = mt"""<!DOCTYPE html>
                         <div id="multiMotifText4" class="multi-info-item"></div>
                         <div id="multiMotifText5" class="multi-info-item"></div>
                         <div id="multiMotifText6" class="multi-info-item"></div>
+                        <div id="multiMotifDesc" class="motif-description"></div>
                     </div>
                 </div>
                 <div class="multi-modal-right">
@@ -500,6 +501,7 @@ html_template_singleton = mt"""<!DOCTYPE html>
                         <div id="singletonModalText4" class="singleton-info-item"></div>
                         <div id="singletonModalText5" class="singleton-info-item"></div>
                         <div id="singletonModalText6" class="singleton-info-item"></div>
+                        <div id="singletonModalDesc" class="motif-description"></div>
                         <div id="singletonModalText7" class="singleton-info-item"></div>
                     </div>
                 </div>
@@ -806,6 +808,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                         <div id="singletonModalText4" class="singleton-info-item"></div>
                         <div id="singletonModalText5" class="singleton-info-item"></div>
                         <div id="singletonModalText6" class="singleton-info-item"></div>
+                        <div id="singletonModalDesc" class="motif-description"></div>
                     </div>
                 </div>
                 <div class="singleton-modal-right">
@@ -842,6 +845,7 @@ html_template_unified = mt"""<!DOCTYPE html>
                         <div id="multiMotifText4" class="multi-info-item"></div>
                         <div id="multiMotifText5" class="multi-info-item"></div>
                         <div id="multiMotifText6" class="multi-info-item"></div>
+                        <div id="multiMotifDesc" class="motif-description"></div>
                     </div>
                 </div>
                 <div class="multi-modal-right">
@@ -934,6 +938,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
                         <div id="singletonModalText4" class="singleton-info-item"></div>
                         <div id="singletonModalText5" class="singleton-info-item"></div>
                         <div id="singletonModalText6" class="singleton-info-item"></div>
+                        <div id="singletonModalDesc" class="motif-description"></div>
                     </div>
                 </div>
                 <div class="singleton-modal-right">
@@ -973,6 +978,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
                         <div id="multiMotifText4" class="multi-info-item"></div>
                         <div id="multiMotifText5" class="multi-info-item"></div>
                         <div id="multiMotifText6" class="multi-info-item"></div>
+                        <div id="multiMotifDesc" class="motif-description"></div>
                     </div>
                 </div>
                 <div class="multi-modal-right">
@@ -1034,11 +1040,29 @@ html_template_top_movers = mt"""<!DOCTYPE html>
             document.getElementById('singletonModalText' + t).innerHTML =
                 (d.texts && d.texts[t - 1]) ? d.texts[t - 1] : '';
         }
+        setMotifDescription('singletonModalDesc', d.description);
         document.getElementById('singletonModal').style.display = 'block';
     }
     function closeSingletonModal() {
         document.getElementById('singletonModal').style.display = 'none';
         window.scrollTo(0, topMoverScroll);
+    }
+
+    // Plain-language interpretation block. Hidden entirely when there is no
+    // sentence (convolution motifs, or columns with no confident residue call),
+    // so the popup never shows an empty labelled section.
+    function setMotifDescription(elId, text) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        if (text && String(text).trim()) {
+            el.innerHTML = '<span class="motif-description-label">Interpretation</span>' +
+                           '<span class="motif-description-text"></span>';
+            el.querySelector('.motif-description-text').textContent = text;
+            el.style.display = '';
+        } else {
+            el.innerHTML = '';
+            el.style.display = 'none';
+        }
     }
 
     // Multi-motif popup with an inter-motif-distance slider. Mirrors
@@ -1064,6 +1088,10 @@ html_template_top_movers = mt"""<!DOCTYPE html>
         slider.oninput = function () {
             updateTopMoverMulti(parseInt(this.value), images, labels, texts, baseFolder, d.title);
         };
+        // The interpretation describes the motif's mutated sites, which do not
+        // change as the slider walks the inter-motif distances — so it is set
+        // once here rather than inside updateTopMoverMulti().
+        setMotifDescription('multiMotifDesc', d.description);
         document.getElementById('multiMotifModal').style.display = 'block';
     }
     function updateTopMoverMulti(v, images, labels, texts, baseFolder, title) {
