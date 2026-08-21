@@ -14,6 +14,36 @@ Features:
 - Hover effects and animations
 """
 template_css = mt"""
+/* ── Low-generalization warning ──────────────────────────────────────────
+   Shown on the motif and summary pages when held-out R2 is below threshold.
+   The motif list is a ranking (top/bottom N by median Banzhaf), not a
+   significance test, so it reports groups even on data with no signal. */
+.generalization-warning{
+    display:flex; gap:14px; align-items:flex-start;
+    max-width:1100px; margin:18px auto 6px auto; padding:14px 18px;
+    border:1px solid #d98324; border-left:6px solid #d98324; border-radius:8px;
+    background:#fff8ef; color:#5a3a12;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:14px; line-height:1.5;
+}
+.generalization-warning-badge{
+    flex:0 0 auto; align-self:center;
+    background:#d98324; color:#fff; font-weight:700; font-size:11px;
+    letter-spacing:.04em; text-transform:uppercase;
+    padding:5px 10px; border-radius:4px; white-space:nowrap;
+}
+.generalization-warning-body{flex:1 1 auto;}
+.generalization-warning-body strong{color:#8a4b00;}
+.generalization-warning-body code{
+    background:#f2e2cd; padding:1px 5px; border-radius:3px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px;
+}
+@media (prefers-color-scheme: dark){
+    .generalization-warning{background:#2b2115; color:#f0dcc0; border-color:#c9791f;}
+    .generalization-warning-body strong{color:#ffc478;}
+    .generalization-warning-body code{background:#3d2f1d;}
+}
+
 body {
     font-family: Arial, sans-serif;
     background-color: #f5f5f7;

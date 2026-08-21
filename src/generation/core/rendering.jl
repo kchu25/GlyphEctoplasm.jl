@@ -32,7 +32,8 @@ function render_and_save_outputs!(json_motifs::Dict, html_dict, j::Integer;
         page_title::AbstractString="n/a",
         use_unified::Bool=false,
         enable_colored_borders::Bool=true,
-        has_summary::Bool=false
+        has_summary::Bool=false,
+        generalization_warning::AbstractString=""   # "" => nothing is shown (default)
         )
     
     # Ensure save_path directory exists
@@ -63,7 +64,8 @@ function render_and_save_outputs!(json_motifs::Dict, html_dict, j::Integer;
     
     # Render HTML
     df = html_dict |> DataFrame
-    html_rendered = Mustache.render(template_to_use, DF=df, protein_name=page_title, j=j)
+    html_rendered = Mustache.render(template_to_use, DF=df, protein_name=page_title, j=j,
+                                    generalization_warning=generalization_warning)
     html_rendered = html_rendered * html_end
     
     # Render JavaScript with border coloring flag

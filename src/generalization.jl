@@ -177,3 +177,52 @@ function publication_kde_panel(data_pairs;
 
     return fig
 end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Low-generalization warning banner
+#
+# Why this exists: the motif pages ALWAYS report groups. The final selection is
+# `top_and_bot_counts` = top 8 + bottom 8 by median Banzhaf, which is a RANKING,
+# not a significance test. Measured on null data (labels replaced with pure
+# noise, and separately with the real labels shuffled), the pipeline still
+# returned exactly 16 singleton groups in 9 out of 9 runs, with positions, signs
+# and magnitudes that look identical to real findings. In one of six null runs
+# the magnitudes were inside the range seen on genuine signal.
+#
+# What DOES separate the two cleanly is held-out R²: ~0.87 on real signal,
+# ~0.00 on both nulls. So R² is the honest gate, and this banner surfaces it on
+# the page rather than leaving it in a log nobody reads.
+# ────────────────────────────────────────────────────────────────────────────
+
+"""Default held-out R² below which reported motifs are flagged as unreliable."""
+const DEFAULT_GENERALIZATION_WARN_THRESHOLD = 0.15
+
+"""
+    generalization_warning_html(test_r2; threshold=DEFAULT_GENERALIZATION_WARN_THRESHOLD)
+
+HTML banner warning that the motifs on this page may be meaningless, or `""`
+when the model generalizes well enough (or when `test_r2` is unavailable).
+
+Returns `""` for `nothing` and `NaN` so callers can pass a possibly-missing
+value without branching.
+"""
+function generalization_warning_html(test_r2; threshold=DEFAULT_GENERALIZATION_WARN_THRESHOLD)
+    test_r2 === nothing && return ""
+    (isa(test_r2, Real) && isfinite(test_r2)) || return ""
+    test_r2 >= threshold && return ""
+    r2s = string(round(test_r2, digits=3))
+    ths = string(round(threshold, digits=3))
+    return string(
+        "<div class=\"generalization-warning\" role=\"alert\">",
+        "<span class=\"generalization-warning-badge\">Low generalization</span>",
+        "<div class=\"generalization-warning-body\">",
+        "<strong>These motifs may be meaningless.</strong> ",
+        "Held-out R&sup2; is <code>", r2s, "</code>, below the ", ths, " threshold, ",
+        "so the model does not predict unseen variants.",
+        "<br>The motif list is a ranking, not a significance test: the top and bottom ",
+        "groups are always reported, even on data with no signal at all. ",
+        "On null data (pure noise, and shuffled labels) this pipeline still returned ",
+        "a full set of groups with plausible-looking positions and magnitudes. ",
+        "Treat everything below as unverified until R&sup2; improves.",
+        "</div></div>")
+end

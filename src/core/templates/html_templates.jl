@@ -561,6 +561,7 @@ html_template_unified = mt"""<!DOCTYPE html>
     <br><br>
     <div class="wrapper">
         <div id="nav" style="display: flex; justify-content: center;"></div>
+        {{{:generalization_warning}}}
         <br><br>
         
         <script>
@@ -904,6 +905,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
     <br><br>
     <div class="wrapper top-movers-wrapper">
         <div id="nav" style="display: flex; justify-content: center;"></div>
+        {{{:generalization_warning}}}
         {{{:protein_header}}}
 
         <div class="top-movers-section">

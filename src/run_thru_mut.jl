@@ -25,6 +25,10 @@ function plot_motifs_mut_case(data, m,
         enable_colored_borders=true,
         optimize_pngs::Bool=true,
         png_colors::Int=64,
+        generalization_warn_threshold::Real=DEFAULT_GENERALIZATION_WARN_THRESHOLD,
+                               # held-out R2 below this puts a "these motifs may be
+                               # meaningless" banner on the motif and summary pages.
+                               # Set to -Inf to disable the banner entirely.
         gc_every::Int=25,      # incremental GC + Plots.closeall() every N motifs to cap RSS; 0 disables
         bg_max_points=nothing, # cap the indicator-plot background cloud to this many points; nothing = no cap
         points_only::Bool=false # dump indicator_points.csv and return, skipping all rendering
@@ -39,6 +43,18 @@ function plot_motifs_mut_case(data, m,
     # first, so it survives a render that fails partway through.
     save_indicator_points(pts, all_idx, save_path)
     points_only && return nothing
+
+    # Held-out R2 drives the low-generalization banner. Computed here so both the
+    # motif page and the summary page carry the same number. `pts_test === nothing`
+    # (or a malformed pts_test) yields "" and nothing is shown, which is the
+    # pre-existing behaviour for every caller that does not pass held-out points.
+    generalization_warning = try
+        pts_test === nothing ? "" :
+            generalization_warning_html(_compute_r2(pts_test.labels, pts_test.predictions);
+                                        threshold = generalization_warn_threshold)
+    catch
+        ""
+    end
 
     # Single configuration object for all mutation region analysis
     m_config = MutationRegionConfig(data;
@@ -91,7 +107,8 @@ function plot_motifs_mut_case(data, m,
         page_title = page_title,
         use_unified = use_unified,
         enable_colored_borders = enable_colored_borders,
-        has_summary = true                # Show the Summary (top-movers) nav link
+        has_summary = true,               # Show the Summary (top-movers) nav link
+        generalization_warning = generalization_warning
     )
 
     # Generalization page (index2.html) — only when held-out predictions are
@@ -132,7 +149,8 @@ function plot_motifs_mut_case(data, m,
         positives=positives, negatives=negatives,
         page_title=page_title, nav_page_count=nav_page_count,
         protein_name=protein_name, protein_length=protein_length,
-        wild_type=wild_type, feature_label=top_movers_label
+        wild_type=wild_type, feature_label=top_movers_label,
+        generalization_warning=generalization_warning
     )
 
     # Same ranking, dumped at full precision for cross-dataset comparison.
