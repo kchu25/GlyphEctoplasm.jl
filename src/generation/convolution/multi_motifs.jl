@@ -47,9 +47,9 @@ Uses config for rendering parameters (dpi, alpha, use_rna, xlim, filter_len).
 """
 function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d_key, 
         pfm, flat_windows, highlight_region, median_val, count_val, banzhafs, config::ConvMotifConfig;
-        save_folder_motif, motif_type_subdir, relaxed_median, 
+        save_folder_motif, motif_type_subdir, relaxed_median,
         interaction_summary_mode_str = nothing,
-        rna=false, nnd_result=nothing)
+        rna=false, nnd_result=nothing, report_location_z::Bool=false)
     
     d_str = get_d_str(d_key)
     paths = build_motif_paths(d_str, save_folder_motif, motif_type_subdir)
@@ -68,7 +68,8 @@ function process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d
     texts = build_metadata_texts(pfm, paths, median_val, count_val; 
                                 interaction_summary_mode_str=interaction_summary_mode_str,
                                 use_rna=config.use_rna, 
-                                relaxed_median=relaxed_median, nnd_result=nnd_result)
+                                relaxed_median=relaxed_median, nnd_result=nnd_result,
+                                report_location_z=report_location_z)
     
     label = get_descriptive_str(k, d_key)
     # Add variant without populating HTML (HTML will be populated once at the end)
@@ -108,6 +109,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         button_text::String = "Multi-Motifs",
         start_idx::Int = 1,
         rna=false,
+        report_location_z::Bool=false,
         top_movers_out::Union{Vector{TopMoverEntry}, Nothing}=nothing
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
@@ -161,7 +163,11 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         # onto the NND result so it shows on the card and ranks the top-movers
         # page, matching the mutation case.
         cluster_median = any(is_in_intersect) ? median(@view pts.labels[is_in_intersect]) : NaN
-        nnd_result = (; nnd_base..., cluster_median)
+        # Location statistic: closed-form companion to the NND test (see
+        # `location_z_1d`). Computed unconditionally — it is free — but only
+        # displayed when `report_location_z` is on.
+        location_z = location_z_1d(subpop_pos, pts.labels)
+        nnd_result = (; nnd_base..., cluster_median, location_z)
 
         # ——————————————————————— process d_syms variants ————————————————————————————
         gdf_by_dsyms = groupby(gdf_by_msyms[k], build_grouping_columns(:distances; motif_size=motif_size))
@@ -196,7 +202,8 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
                 interaction_summary_mode_str=interaction_summary_mode_str,
                 save_folder_motif=save_folder_motif, 
                 motif_type_subdir=joinpath(motif_type, k_mode_str),
-                relaxed_median=relaxed_median_val, rna=rna, nnd_result=nnd_result)
+                relaxed_median=relaxed_median_val, rna=rna, nnd_result=nnd_result,
+                report_location_z=report_location_z)
         end
         
         # Populate HTML dict with first variant
@@ -231,6 +238,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
                 collect(String, json_motifs[mode_str][pwms_str]),           # variant_pwms
                 collect(String, json_motifs[mode_str][labels_str]),         # variant_labels
                 [collect(String, t) for t in json_motifs[mode_str][texts_str]],  # variant_texts
+                float(location_z),                  # location_z (NaN when not computable)
             ))
         end
     end

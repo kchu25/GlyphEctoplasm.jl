@@ -31,6 +31,11 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
         top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        report_location_z=false,       # opt in to the per-motif location z-score: adds a
+                                       # `location_z` column to the top-movers CSV and a
+                                       # "location z" figure beside "p-value (NND)" on each
+                                       # card. Off ⇒ output is exactly what it was before
+                                       # the statistic existed.
         points_only::Bool=false        # dump indicator_points.csv and return, skipping all rendering
         );
 
@@ -45,11 +50,11 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         ds_name = dataset_name === nothing ? page_title : dataset_name
         run_nnd_sensitivity_analysis(
             contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
-            save_path=save_path, page_title=ds_name
+            save_path=save_path, page_title=ds_name, report_location_z=report_location_z
         )
         run_nnd_sensitivity_analysis_null(
             contributions_df_filtered_singletons, dfs, all_indices, pts, motif_sizes;
-            save_path=save_path, page_title=ds_name
+            save_path=save_path, page_title=ds_name, report_location_z=report_location_z
         )
         return nothing
     end
@@ -68,7 +73,8 @@ function plot_motifs_conv_case(data, m, motif_sizes,
 
     next_idx, sorted_mapping = process_singletons!(
         contributions_df_filtered_singletons, all_indices, pts, config, json_motifs, html_dict;
-        start_idx=1, rna=rna, top_movers_out=top_movers)
+        start_idx=1, rna=rna, report_location_z=report_location_z,
+        top_movers_out=top_movers)
 
     # Remap filter indices in multi-motif DataFrames to use sorted order
     remap_filter_indices!(dfs, sorted_mapping, motif_sizes)
@@ -87,6 +93,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
                 interaction_summary=interaction_summary,
                 motif_size=motif_size, group_id=group_id,
                 button_text=button_text, start_idx=next_idx, rna=rna,
+                report_location_z=report_location_z,
                 top_movers_out=top_movers
                 )
     end
@@ -145,6 +152,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     if top_movers_csv !== nothing
         write_top_movers_csv(top_movers_csv, positives, negatives;
             protein_name=protein_name, label=top_movers_label,
+            report_location_z=report_location_z,
             append=top_movers_csv_append)
     end
 

@@ -24,10 +24,15 @@ Applies Benjamini–Hochberg FDR correction across all tests and saves results t
 - `ks::Vector{Int}`: k values to sweep (default: `SENSITIVITY_KS` = [1,3,5,7,10,15,20])
 - `save_path::String`: Directory for saving CSV output
 - `page_title::String`: Dataset identifier written into the CSV
+- `report_location_z::Bool=false`: also emit a `location_z` column — the motif's
+  closed-form location z-score (see `location_z_1d`), constant across `k` since
+  it does not depend on the neighbour count. Off by default so the CSV keeps its
+  existing 9-column schema.
 
 # Output
 Saves `nnd_sensitivity.csv` with columns:
   dataset, motif_id, motif_type, k, n_subpop, n_background, obs_mNND, raw_pvalue, adjusted_pvalue
+(plus `location_z` when `report_location_z=true`)
 
 # Returns
 DataFrame with all sensitivity analysis results (same as saved CSV content)
@@ -36,7 +41,8 @@ function run_nnd_sensitivity_analysis(
         contributions_df, dfs, all_indices, pts, motif_sizes;
         ks::Vector{Int} = SENSITIVITY_KS,
         save_path::String = "tmp",
-        page_title::String = "n/a"
+        page_title::String = "n/a",
+        report_location_z::Bool = false
     )
     @info "Running NND sensitivity analysis across k ∈ $ks …"
     mkpath(save_path)
@@ -47,6 +53,7 @@ function run_nnd_sensitivity_analysis(
     RowType = NamedTuple{(:dataset,:motif_id,:motif_type,:k,:n_subpop,:n_background,:obs_mNND,:raw_pvalue),
                           Tuple{String,String,String,Int,Int,Int,Float64,Float64}}
     rows = RowType[]
+    locz = Float64[]   # parallel to `rows`; only spliced in when opted into
 
     # Helper: run batched NND and append rows for one motif
     function _process_motif!(subpop_pos::Vector{Int}, motif_id::String, motif_type::String)
@@ -56,11 +63,15 @@ function run_nnd_sensitivity_analysis(
         valid_ks = filter(kv -> kv < N_bg, ks)
         isempty(valid_ks) && return
 
+        # Location z is k-independent, so it is computed once per motif and
+        # repeated down the motif's k rows.
+        z = report_location_z ? location_z_1d(subpop_pos, background) : NaN
         batch_results = nnd_sensitivity_batch_1d(subpop_pos, background; ks=valid_ks)
         for res in batch_results
             push!(rows, (dataset=page_title, motif_id=motif_id, motif_type=motif_type,
                          k=res.k, n_subpop=m, n_background=N_bg,
                          obs_mNND=res.obs_mNND, raw_pvalue=res.p_value))
+            push!(locz, z)
         end
     end
 
@@ -105,6 +116,7 @@ function run_nnd_sensitivity_analysis(
     # Build final DataFrame
     df_out = DataFrame(rows)
     df_out.adjusted_pvalue = adj_ps
+    report_location_z && (df_out.location_z = locz)
 
     csv_path = joinpath(save_path, "nnd_sensitivity.csv")
     CSV.write(csv_path, df_out)
@@ -127,9 +139,14 @@ sensitivity test against `pts.labels` as the pool (no duplication).
 Under the null, the p-values should be roughly uniform, and the
 rejection rate at α = 0.05 should be ≈ 5%.
 
+`report_location_z=true` adds the same `location_z` column the real analysis
+gains, computed on the fake subpopulation — the null calibration for the location
+statistic, next to the null calibration for the tightness one. Off by default.
+
 # Output
 Saves `nnd_sensitivity_null.csv` with the same schema as the real analysis:
   dataset, motif_id, motif_type, k, n_subpop, n_background, obs_mNND, raw_pvalue, adjusted_pvalue
+(plus `location_z` when `report_location_z=true`)
 
 # Returns
 DataFrame with all null sensitivity analysis results.
@@ -139,7 +156,8 @@ function run_nnd_sensitivity_analysis_null(
         ks::Vector{Int} = SENSITIVITY_KS,
         save_path::String = "tmp",
         page_title::String = "n/a",
-        seed::Int = 123
+        seed::Int = 123,
+        report_location_z::Bool = false
     )
     @info "Running NULL NND sensitivity analysis across k ∈ $ks …"
     mkpath(save_path)
@@ -150,6 +168,7 @@ function run_nnd_sensitivity_analysis_null(
     RowType = NamedTuple{(:dataset,:motif_id,:motif_type,:k,:n_subpop,:n_background,:obs_mNND,:raw_pvalue),
                           Tuple{String,String,String,Int,Int,Int,Float64,Float64}}
     rows = RowType[]
+    locz = Float64[]   # parallel to `rows`; only spliced in when opted into
 
     # Helper: randomly pick m positional indices from 1:N_bg as fake subpop
     function _process_null_motif!(m::Int, motif_id::String, motif_type::String)
@@ -161,11 +180,13 @@ function run_nnd_sensitivity_analysis_null(
         valid_ks = filter(kv -> kv < N_bg, ks)
         isempty(valid_ks) && return
 
+        z = report_location_z ? location_z_1d(fake_positions, background) : NaN
         batch_results = nnd_sensitivity_batch_1d(fake_positions, background; ks=valid_ks)
         for res in batch_results
             push!(rows, (dataset=page_title, motif_id=motif_id, motif_type=motif_type,
                          k=res.k, n_subpop=m, n_background=N_bg,
                          obs_mNND=res.obs_mNND, raw_pvalue=res.p_value))
+            push!(locz, z)
         end
     end
 
@@ -205,6 +226,7 @@ function run_nnd_sensitivity_analysis_null(
 
     df_out = DataFrame(rows)
     df_out.adjusted_pvalue = adj_ps
+    report_location_z && (df_out.location_z = locz)
 
     csv_path = joinpath(save_path, "nnd_sensitivity_null.csv")
     CSV.write(csv_path, df_out)

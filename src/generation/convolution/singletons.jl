@@ -13,6 +13,7 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
         mode_prefix="mode_", group_id="", button_text="Singleton Motifs",
         rna=false, is_significant::Bool=true,
         display_index::Union{Int, Nothing}=nothing,
+        report_location_z::Bool=false,
         top_movers_out::Union{Vector{TopMoverEntry}, Nothing}=nothing
         )
 
@@ -47,14 +48,19 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
     # (median of their raw expression labels). Augmented onto the NND result so it
     # shows on the card and ranks the top-movers page, matching the mutation case.
     cluster_median = any(is_in_intersect) ? median(@view pts.labels[is_in_intersect]) : NaN
-    nnd_result = (; nnd_base..., cluster_median)
+    # Location statistic: closed-form, no permutation, so it costs nothing to
+    # compute here next to the NND test. Carried on `nnd_result` for the card and
+    # the summary row; whether it is *shown* is `report_location_z`'s call.
+    location_z = location_z_1d(subpop_pos, pts.labels)
+    nnd_result = (; nnd_base..., cluster_median, location_z)
 
     # ——————————————————————————————————— end —————————————————————————————————————
 
     # Build metadata texts
     texts = build_metadata_texts(pfm, paths, median_val, count_val;
                                 use_rna=config.use_rna, relaxed_median=nothing,
-                                nnd_result=nnd_result)
+                                nnd_result=nnd_result,
+                                report_location_z=report_location_z)
 
     mode_str = mode_prefix * string(idx)
     label = "motif $(shown_index)"
@@ -85,6 +91,7 @@ function process_and_register_singleton!(all_indices, pts, json_motifs, html_dic
             String[],                           # variant_pwms (singleton: no slider)
             String[],                           # variant_labels
             Vector{String}[],                   # variant_texts
+            float(location_z),                  # location_z (NaN when not computable)
         ))
     end
 end
@@ -127,6 +134,7 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
         rna=false,
         get_sorted_mapping_only=false,
         mark_insignificant::Bool=false,
+        report_location_z::Bool=false,
         top_movers_out::Union{Vector{TopMoverEntry}, Nothing}=nothing
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
@@ -171,7 +179,8 @@ function process_singletons!(contributions_df, all_indices, pts, config::ConvMot
             save_folder=save_folder, motif_type=motif_type, 
             median_val=median_map[k], count_val=count_map[k], banzhafs=list_of_banzhafs[k],
             mode_prefix=mode_prefix, group_id=group_id, button_text=button_text, rna=rna,
-            is_significant=is_significant, display_index=i, top_movers_out=top_movers_out)
+            is_significant=is_significant, display_index=i,
+            report_location_z=report_location_z, top_movers_out=top_movers_out)
     end
     
     # Remap filter_index column in contributions_df to use sorted order (after processing)

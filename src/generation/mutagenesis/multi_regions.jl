@@ -464,17 +464,27 @@ permutation test, returning its result. The plot is written under the filename
 convention the singleton modal derives from the card image
 (`<dir>/yy_kde_intersect_<file_name>.png`). May throw; callers wrap this so a
 failure (e.g. `pts` not aligned to `all_indices`) only skips this one plot.
+
+This is the single point where the mutagenesis path computes a per-motif NND
+p-value — for single-region motifs and multi-region ones alike — so it is also
+where the companion location z-score is computed. Both come back on the same
+NamedTuple: `(k, obs_mNND, p_value, cluster_median, location_z)`.
 """
 function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k, bg_max_points=nothing)
     is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
     kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif", bg_max_points=bg_max_points)
     save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"), kde_fig, px_per_unit=1)
-    nnd = nnd_permutation_test_1d(findall(is_in_intersect), pts.labels; k=nnd_k)
+    carriers = findall(is_in_intersect)
+    nnd = nnd_permutation_test_1d(carriers, pts.labels; k=nnd_k)
     # Cluster median: where the motif's sequences sit on the expression axis
     # (median of their raw expression labels). Stored alongside the NND result
     # for display and later comparisons.
     cluster_median = any(is_in_intersect) ? median(@view pts.labels[is_in_intersect]) : NaN
-    return (; nnd.k, nnd.obs_mNND, nnd.p_value, cluster_median)
+    # Location z: do the carriers behave differently from the population, as
+    # opposed to merely coherently (which is what NND asks)? Closed-form, so it
+    # adds no measurable cost to this call. NaN when not computable.
+    location_z = location_z_1d(carriers, pts.labels)
+    return (; nnd.k, nnd.obs_mNND, nnd.p_value, cluster_median, location_z)
 end
 
 """
@@ -862,6 +872,7 @@ A throw propagates to the caller's per-motif `try` (which records `diag.n_failed
 function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
         pts = nothing, all_indices = nothing, nnd_k = 15,
         interaction_summaries = nothing, top_movers_out = nothing, bg_max_points = nothing,
+        report_location_z::Bool = false,
         feature_label = nothing)
     EntroPlots.save_logo_with_rect_gaps(
         meta.count_matrices, meta.positions, meta.total_length,
@@ -940,6 +951,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         show_meme_and_csv=false,
         interaction_summary_mode_str=interaction_str,
         nnd_result=nnd_result,
+        report_location_z=report_location_z,
         description=description
     )
 
@@ -958,6 +970,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         cm = nnd_result === nothing ? NaN : float(nnd_result.cluster_median)
         cn = nnd_result === nothing ? NaN : float(nnd_result.obs_mNND)
         cp = nnd_result === nothing ? NaN : float(nnd_result.p_value)
+        lz = nnd_result === nothing ? NaN : float(nnd_result.location_z)
         push!(top_movers_out, TopMoverEntry(
             float(meta.median), cm, cn, meta.count,
             display_name, meta.button_text, meta.span, cp,
@@ -971,6 +984,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
             # layout (per-file yy_kde, no base-folder relaxed plot), so its
             # popup keeps the static singleton modal. (Conv case opts in.)
             String[], String[], Vector{String}[],
+            lz,                                     # location_z (NaN when unavailable)
         ))
     end
 
@@ -1014,6 +1028,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         pts = nothing, all_indices = nothing, interaction_summaries = nothing,
         nnd_k = 15, top_movers_out = nothing,
         gc_every::Int = 25, bg_max_points = nothing,
+        report_location_z::Bool = false,  # also show the location z-score on each card
         feature_label = nothing)   # assay name (+units) for the interpretation sentence
 
     # Flatten if needed (handles both single vector and vector of vectors)
@@ -1052,7 +1067,8 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                 json_motifs, html_dict, meta, paths, file_name, display_name, current_idx, diag;
                 pts=pts, all_indices=all_indices, nnd_k=nnd_k,
                 interaction_summaries=interaction_summaries, top_movers_out=top_movers_out,
-                bg_max_points=bg_max_points, feature_label=feature_label
+                bg_max_points=bg_max_points, report_location_z=report_location_z,
+                feature_label=feature_label
             )
             push!(registered_names, display_name)  # Track registration
             current_idx += 1

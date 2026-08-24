@@ -168,4 +168,108 @@ using GlyphEctoplasm.PNGFiles
         @test !occursin("cluster median", t3[end])
     end
 
+    # ── location statistic (companion to the NND tightness test) ────────────
+
+    @testset "location_z_1d" begin
+        lz = GlyphEctoplasm.location_z_1d
+
+        # Hand-checkable closed form: background 1..5 has mean 3 and sample sd
+        # sqrt(2.5); carriers {1,2,3} have mean 2 and n=3.
+        bg_small = [1.0, 2.0, 3.0, 4.0, 5.0]
+        @test lz([1, 2, 3], bg_small) ≈ (2.0 - 3.0) / (sqrt(2.5) / sqrt(3))
+
+        Random.seed!(20250820)
+        bg = randn(4000)
+
+        # Strongly shifted carriers -> large |z|, sign follows the shift.
+        up = collect(1:150)
+        bg_up = copy(bg); bg_up[up] .+= 3.0
+        z_up = lz(up, bg_up)
+        @test z_up > 10
+        bg_dn = copy(bg); bg_dn[up] .-= 3.0
+        z_dn = lz(up, bg_dn)
+        @test z_dn < -10
+
+        # A random subset of the same size is a draw from the null -> |z| ~ N(0,1).
+        rand_pos = Random.randperm(length(bg))[1:150]
+        @test abs(lz(rand_pos, bg)) < 3
+
+        # Degenerate cases return the NaN sentinel instead of throwing.
+        @test isnan(lz(Int[], bg))                    # no carriers
+        @test isnan(lz([7], bg))                      # one carrier
+        @test isnan(lz([1, 2, 3], fill(2.0, 20)))     # zero-variance background
+        @test isnan(lz([1, 2, 3], nothing))           # missing labels
+        @test isnan(lz(nothing, bg))                  # missing carrier list
+        @test isnan(lz([1, 2], [4.0]))                # background too small
+
+        # `missing` / non-finite labels are skipped, not propagated.
+        bg_m = Vector{Union{Missing,Float64}}(bg_small)
+        bg_m[5] = missing
+        @test lz([1, 2, 3], bg_m) ≈ (2.0 - 2.5) / (sqrt(5/3) / sqrt(3))
+        @test isnan(lz([1, 5], bg_m))                 # only 1 usable carrier left
+        bg_nan = [1.0, 2.0, 3.0, 4.0, NaN, Inf]
+        @test lz([1, 2, 3], bg_nan) ≈ lz([1, 2, 3], [1.0, 2.0, 3.0, 4.0])
+
+        # Positional indices outside the background are ignored.
+        @test lz([1, 2, 3, 999], bg_small) ≈ lz([1, 2, 3], bg_small)
+    end
+
+    @testset "location z display text" begin
+        paths = GlyphEctoplasm.build_motif_paths("x", mktempdir(), "singletons")
+        res = (; k=5, obs_mNND=0.12, p_value=0.03, cluster_median=1.234, location_z=-6.7)
+
+        # Legacy call (no `report_location_z`): unchanged, even though the
+        # nnd_result now carries the field.
+        legacy = build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=res)
+        @test !occursin("location z", legacy[end])
+        @test legacy == build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=(; k=5, obs_mNND=0.12, p_value=0.03, cluster_median=1.234))
+
+        # Opted in: shown beside the NND p-value, sign preserved.
+        shown = build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=res, report_location_z=true)
+        @test occursin("p-value (NND)", shown[end])
+        @test occursin("location z: <strong>-6.70", shown[end])
+
+        # NaN sentinel is omitted rather than printed.
+        nan_z = build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=(; k=5, obs_mNND=0.12, p_value=0.03, cluster_median=1.234,
+                              location_z=NaN), report_location_z=true)
+        @test !occursin("location z", nan_z[end])
+
+        # A conv-style result predating the field: opting in is a no-op, no throw.
+        old_shape = build_metadata_texts(nothing, paths, 0.5, 10; show_meme_and_csv=false,
+                nnd_result=(; k=5, obs_mNND=0.12, p_value=0.03), report_location_z=true)
+        @test !occursin("location z", old_shape[end])
+    end
+
+    @testset "TopMoverEntry location_z back-compat" begin
+        args20 = (0.5, 1.0, 0.2, 30, "motif 1", "Singleton Motifs", "", 0.01,
+                  true, "", GlyphEctoplasm.WildTypeRegion[], "a.png", "", "",
+                  "i.png", "k.png", ["t"], String[], String[], Vector{String}[])
+
+        # 20-argument (pre-change) construction still works, marks the stat absent.
+        legacy = TopMoverEntry(args20...)
+        @test isnan(legacy.location_z)
+        # 21-argument construction carries the value; every other field matches.
+        withz = TopMoverEntry(args20..., -8.25)
+        @test withz.location_z == -8.25
+        @test all(getfield(legacy, f) == getfield(withz, f)
+                  for f in fieldnames(TopMoverEntry) if f !== :location_z)
+
+        # CSV schema: absent by default, so existing readers see the same table.
+        base = GlyphEctoplasm.top_movers_dataframe([withz], TopMoverEntry[])
+        @test !("location_z" in names(base))
+        @test names(base)[12:13] == ["cluster_nnd", "nnd_pvalue"]
+
+        # Opted in: one extra column, immediately after `nnd_pvalue`.
+        withcol = GlyphEctoplasm.top_movers_dataframe([withz], TopMoverEntry[];
+                                                      report_location_z=true)
+        @test names(withcol) == vcat(names(base)[1:13], "location_z", names(base)[14:end])
+        @test withcol.location_z == [-8.25]
+        @test isnan(GlyphEctoplasm.top_movers_dataframe([legacy], TopMoverEntry[];
+                        report_location_z=true).location_z[1])
+    end
+
 end

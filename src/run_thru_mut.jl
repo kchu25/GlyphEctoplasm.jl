@@ -20,6 +20,11 @@ function plot_motifs_mut_case(data, m,
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
         top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        report_location_z=false,       # opt in to the per-motif location z-score: adds a
+                                       # `location_z` column to the top-movers CSV and a
+                                       # "location z" figure beside "p-value (NND)" on each
+                                       # card. Off ⇒ output is exactly what it was before
+                                       # the statistic existed.
         nav_page_count=4,
         use_unified=true,
         enable_colored_borders=true,
@@ -94,6 +99,7 @@ function plot_motifs_mut_case(data, m,
         top_movers_out = top_movers,       # Collect summary rows for the landing page
         gc_every = gc_every,               # Periodic incremental GC to bound peak RSS on large runs
         bg_max_points = bg_max_points,     # Optional cap on indicator-plot background points (nothing = off)
+        report_location_z = report_location_z,  # Show the location z-score beside the NND p-value
         feature_label = top_movers_label   # Assay name (+units) for each popup's interpretation line
     )
 
@@ -157,6 +163,7 @@ function plot_motifs_mut_case(data, m,
     if top_movers_csv !== nothing
         write_top_movers_csv(top_movers_csv, positives, negatives;
             protein_name=protein_name, label=top_movers_label,
+            report_location_z=report_location_z,
             append=top_movers_csv_append)
     end
 

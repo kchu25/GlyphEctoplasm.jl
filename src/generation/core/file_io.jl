@@ -111,6 +111,107 @@ function nnd_permutation_test_1d(
 end
 
 """
+    location_z_1d(subpop_positions, background) -> Float64
+
+**Location** statistic for one motif: how far the carriers' mean label sits from
+the population mean, measured in standard errors of that mean.
+
+    z = (mean(carrier labels) - mean(all labels)) / (sd(all labels) / sqrt(n_carriers))
+
+This answers a *different* question than [`nnd_permutation_test_1d`](@ref).
+NND asks whether the carriers are a **coherent** group (packed tightly among
+themselves); this asks whether they **behave differently** from the population
+(sit off-centre on the label axis). A motif can be one without the other, so the
+two are reported side by side rather than one replacing the other.
+
+Closed form — no permutation, no sampling. Cost is two passes over `background`
+plus one over the carriers, so it is free next to the NND permutation loop.
+
+# Arguments
+- `subpop_positions`: Integer vector of **positional indices** (1-based) into
+  `background` identifying the carriers — the same convention
+  `nnd_permutation_test_1d` uses. `nothing` is accepted and yields the sentinel.
+- `background`: Full background labels (real-valued vector, length N).
+  `nothing`, `missing` entries and non-finite entries are tolerated (see below).
+
+# Returns
+`Float64`. **`NaN` is the sentinel for "not computable"** — matching how the rest
+of the package spells an unavailable per-motif statistic (`cluster_nnd`,
+`nnd_pvalue`). Nothing here throws. `NaN` is returned when:
+
+- `background` or `subpop_positions` is `nothing`;
+- fewer than 2 usable carriers (a one-point mean has no meaningful standard
+  error, and the caller's degenerate-cluster guards already start at 2);
+- fewer than 2 usable background points;
+- the background has zero (or non-finite) variance — the denominator vanishes;
+- the result would otherwise be `Inf`/`NaN`.
+
+`missing`, `nothing` and non-finite (`NaN`/`Inf`) labels are skipped rather than
+poisoning the statistic; the usability counts above are applied *after* that
+filtering. Positional indices that are out of bounds for `background`, or not
+integers at all, are skipped too — this never throws a `BoundsError`.
+
+Sign is meaningful: positive means the carriers sit **above** the population
+mean, negative **below**. Report `abs(z)` when only the magnitude of the shift
+matters.
+"""
+function location_z_1d(subpop_positions, background)
+    background === nothing && return NaN
+    subpop_positions === nothing && return NaN
+    n_bg_total = length(background)
+    n_bg_total < 2 && return NaN
+
+    # Background mean, then background sample variance (two passes; the naive
+    # sum-of-squares shortcut loses precision on labels with a large offset).
+    n_bg = 0
+    sum_bg = 0.0
+    @inbounds for j in eachindex(background)
+        v = _locz_value(background[j])
+        isnan(v) && continue
+        n_bg += 1
+        sum_bg += v
+    end
+    n_bg < 2 && return NaN
+    mu_bg = sum_bg / n_bg
+
+    ss_bg = 0.0
+    @inbounds for j in eachindex(background)
+        v = _locz_value(background[j])
+        isnan(v) && continue
+        d = v - mu_bg
+        ss_bg += d * d
+    end
+    variance = ss_bg / (n_bg - 1)
+    (isfinite(variance) && variance > 0) || return NaN   # zero-variance background
+    sd_bg = sqrt(variance)
+
+    n_carriers = 0
+    sum_carriers = 0.0
+    for i in subpop_positions
+        i isa Integer || continue
+        ii = Int(i)
+        # `checkbounds`, not `1 <= ii <= length`, so a non-1-based background
+        # (an OffsetArray, a view) is rejected rather than read out of bounds.
+        checkbounds(Bool, background, ii) || continue
+        v = _locz_value(@inbounds background[ii])
+        isnan(v) && continue
+        n_carriers += 1
+        sum_carriers += v
+    end
+    n_carriers < 2 && return NaN
+
+    z = (sum_carriers / n_carriers - mu_bg) / (sd_bg / sqrt(n_carriers))
+    return isfinite(z) ? z : NaN
+end
+
+# Coerce one label to Float64; NaN marks "unusable" (missing/nothing/non-finite/
+# non-numeric) so the accumulators above can skip it with a single `isnan` test.
+_locz_value(::Missing) = NaN
+_locz_value(::Nothing) = NaN
+_locz_value(x::Real)   = (v = Float64(x); isfinite(v) ? v : NaN)
+_locz_value(@nospecialize(x)) = NaN
+
+"""
     nnd_sensitivity_batch_1d(subpop_positions, background; ks, B=1_000, seed=42)
 
 Batched NND permutation test across multiple k values for a single motif.
@@ -281,12 +382,18 @@ consensus, and file links.
 page renders slot 7 as its own "Interpretation" block in the card popup. Left
 `nothing` (the convolution default) the vector stays 6 long and no such block
 appears.
+
+`report_location_z=true` appends the motif's location z-score (see
+[`location_z_1d`](@ref)) to the NND row, next to the NND p-value. Off by
+default: with it off the emitted strings are byte-for-byte what they were before
+the statistic existed, even when `nnd_result` carries a `location_z` field.
 """
 function build_metadata_texts(pfm, paths, median_val, count_val;
                              interaction_summary_mode_str=nothing,
                              use_rna=false, relaxed_median=nothing,
                              show_meme_and_csv=true,
                              nnd_result=nothing,
+                             report_location_z::Bool=false,
                              description=nothing)
 
     @assert !isnothing(count_val) "number of counts used to construct the logo must be provided"
@@ -356,7 +463,22 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
             ""
         end
 
-        string(nnd_str, " &nbsp;|&nbsp; ", pval_str, cm_part)
+        # Location z (opt-in): how far the motif's carriers sit from the
+        # population mean, in standard errors. Sits beside the NND p-value
+        # because it answers the complementary question — "do these carriers
+        # behave differently" vs. "are they a coherent group". Guarded three
+        # ways so any caller that has not opted in, or whose `nnd_result`
+        # predates the field, or whose motif was degenerate (NaN sentinel),
+        # gets the exact string it got before.
+        lz_part = if report_location_z && hasproperty(nnd_result, :location_z) &&
+                     !isnan(nnd_result.location_z)
+            string(" &nbsp;|&nbsp; location z: <strong>",
+                   @sprintf("%.2f", nnd_result.location_z), "</strong>")
+        else
+            ""
+        end
+
+        string(nnd_str, " &nbsp;|&nbsp; ", pval_str, cm_part, lz_part)
     end
 
     # Slot 7 is the plain-language interpretation (mutation case). Appended only
@@ -369,4 +491,4 @@ function build_metadata_texts(pfm, paths, median_val, count_val;
     return texts
 end
 
-export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts, nnd_permutation_test_1d, nnd_sensitivity_batch_1d
+export build_motif_paths, save_motif_logo, save_influence_plot, save_positional_info, build_metadata_texts, nnd_permutation_test_1d, nnd_sensitivity_batch_1d, location_z_1d

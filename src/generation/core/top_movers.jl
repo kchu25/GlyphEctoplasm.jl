@@ -106,6 +106,12 @@ detail modal can be populated without the main page's `jsonData`.
 
 Path fields (`img`, `influence`, `yy_kde`) are relative to the page's save
 folder, matching the relative paths used by the grouped page.
+
+!!! note "`location_z` is the last field, on purpose"
+    It was added after the other 20 and is appended at the end so that every
+    pre-existing 20-argument positional construction still works — a
+    20-argument call is forwarded to the 21-argument one with `location_z =
+    NaN`. Put it anywhere else and silent argument shifting becomes possible.
 """
 struct TopMoverEntry
     # Ranking keys (group-less binned lexicographic order)
@@ -140,7 +146,23 @@ struct TopMoverEntry
     variant_pwms::Vector{String}            # per-variant logo paths (one per distance)
     variant_labels::Vector{String}          # per-variant distance labels
     variant_texts::Vector{Vector{String}}   # per-variant metadata text fields
+    # Location statistic: (mean carrier label − mean population label) /
+    # (sd(population) / sqrt(n_carriers)). NaN when unavailable — see
+    # `location_z_1d`. Trailing field so 20-argument calls keep working.
+    location_z::Float64
 end
+
+# Legacy 20-argument constructor: everything that built a `TopMoverEntry` before
+# `location_z` existed keeps compiling and keeps producing the same entry, with
+# the new statistic marked unavailable (NaN).
+TopMoverEntry(median, cluster_median, cluster_nnd, count, display_name, group_label,
+              span, nnd_p, is_singleton, epistasis, wt_regions, img, img_reduced,
+              img_region, influence, yy_kde, texts, variant_pwms, variant_labels,
+              variant_texts) =
+    TopMoverEntry(median, cluster_median, cluster_nnd, count, display_name, group_label,
+                  span, nnd_p, is_singleton, epistasis, wt_regions, img, img_reduced,
+                  img_region, influence, yy_kde, texts, variant_pwms, variant_labels,
+                  variant_texts, NaN)
 
 """
     select_top_movers(entries; n=5, bin_count=10, min_count=1) -> (positives, negatives)
@@ -463,11 +485,19 @@ whose columns yield no confident residue call.
 
 Note the table can hold fewer than `n` rows per direction, or none: motifs whose
 cluster falls under `select_top_movers`'s `min_count` are dropped before ranking.
+
+`report_location_z=true` adds one further column, `location_z`, immediately after
+`nnd_pvalue`: the motif's location z-score (see [`location_z_1d`](@ref)), i.e.
+how far its carriers' mean label sits from the population mean in standard
+errors. `NaN` where it could not be computed. The column is **absent** by
+default, so an existing consumer of this table sees the same 18 columns in the
+same order it always did.
 """
 function top_movers_dataframe(positives::AbstractVector{TopMoverEntry},
                               negatives::AbstractVector{TopMoverEntry};
                               protein_name::Union{AbstractString,Nothing}=nothing,
-                              label::Union{AbstractString,Nothing}=nothing)
+                              label::Union{AbstractString,Nothing}=nothing,
+                              report_location_z::Bool=false)
     # Columns are declared up front (rather than inferred from pushed rows) so a
     # dataset with no surviving motifs still writes a full header — otherwise the
     # empty file would derail a glob-and-vcat over the run.
@@ -493,8 +523,10 @@ function top_movers_dataframe(positives::AbstractVector{TopMoverEntry},
     )
     pname = protein_name === nothing ? "" : String(protein_name)
     lbl   = label === nothing ? "" : String(label)
+    locz  = Float64[]   # parallel to the rows; only spliced in when opted into
     for (direction, entries) in (("positive", positives), ("negative", negatives))
         for (rank, e) in enumerate(entries)
+            push!(locz, e.location_z)
             coef, pval = parse_epistasis(e.epistasis)
             mut_pos = Int[]
             for reg in e.wt_regions, (j, flag) in enumerate(reg.mutated)
@@ -507,6 +539,12 @@ function top_movers_dataframe(positives::AbstractVector{TopMoverEntry},
                        mutation_description(e.wt_regions, e.median, label)))
         end
     end
+    # Spliced in right after `nnd_pvalue` so the tightness p-value and the
+    # location z read side by side. Left out entirely when not opted into, which
+    # is what keeps the default file byte-identical to the pre-change one.
+    if report_location_z
+        insertcols!(df, columnindex(df, :nnd_pvalue) + 1, :location_z => locz)
+    end
     return df
 end
 
@@ -516,14 +554,20 @@ end
 Write [`top_movers_dataframe`](@ref) to `path`, creating parent directories as
 needed. `append=true` adds rows without repeating the header, so a multi-output
 run can accumulate every label into one per-dataset file. Returns the DataFrame.
+
+`report_location_z=true` adds the `location_z` column (see
+[`top_movers_dataframe`](@ref)). Keep it consistent across the writes that share
+one appended file, or the header and the later rows will disagree.
 """
 function write_top_movers_csv(path::AbstractString,
                               positives::AbstractVector{TopMoverEntry},
                               negatives::AbstractVector{TopMoverEntry};
                               protein_name::Union{AbstractString,Nothing}=nothing,
                               label::Union{AbstractString,Nothing}=nothing,
+                              report_location_z::Bool=false,
                               append::Bool=false)
-    df = top_movers_dataframe(positives, negatives; protein_name=protein_name, label=label)
+    df = top_movers_dataframe(positives, negatives; protein_name=protein_name, label=label,
+                              report_location_z=report_location_z)
     mkpath(dirname(path))
     CSV.write(path, df; append=append, writeheader=!append)
     return df
