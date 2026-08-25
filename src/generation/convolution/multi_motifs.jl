@@ -110,6 +110,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
         start_idx::Int = 1,
         rna=false,
         report_location_z::Bool=false,
+        show_region_interaction::Bool=false,  # display the interaction line? computed either way
         top_movers_out::Union{Vector{TopMoverEntry}, Nothing}=nothing
     )
     save_folder = save_folder === nothing ? joinpath(config.save_path, motif_type) : save_folder
@@ -132,11 +133,14 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
     processed_count = 0
     @showprogress for (i, k) in enumerate(sorted_keys)
 
+        # Looked up regardless — it still reaches the CSV through the entry's
+        # `epistasis` field below. The flag only gates the popup line.
         interaction_summary_mode_str = if !isnothing(interaction_summary)
             get(interaction_summary, k, nothing)
         else
             nothing
         end
+        interaction_display_str = show_region_interaction ? interaction_summary_mode_str : nothing
 
         idx = start_idx + i - 1
         mode_str = mode_prefix * string(idx)
@@ -199,7 +203,7 @@ function process_multi_motifs!(df, all_indices, pts, config::ConvMotifConfig, js
             process_and_register_multi!(json_motifs, html_dict, mode_str, idx, k, d_key,
                 pfm, flat_windows, highlighted_regions[d_key], median_here, counts_map[d_key], 
                 list_of_banzhafs_here[d_key], config;
-                interaction_summary_mode_str=interaction_summary_mode_str,
+                interaction_summary_mode_str=interaction_display_str,
                 save_folder_motif=save_folder_motif, 
                 motif_type_subdir=joinpath(motif_type, k_mode_str),
                 relaxed_median=relaxed_median_val, rna=rna, nnd_result=nnd_result,

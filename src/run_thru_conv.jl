@@ -31,6 +31,9 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
         top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        show_region_interaction=false, # region interaction is still computed and still
+                                       # written to the top-movers CSV; this only decides
+                                       # whether the popup prints it. Off by default.
         report_location_z=false,       # opt in to the per-motif location z-score: adds a
                                        # `location_z` column to the top-movers CSV and a
                                        # "location z" figure beside "p-value (NND)" on each
@@ -94,6 +97,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
                 motif_size=motif_size, group_id=group_id,
                 button_text=button_text, start_idx=next_idx, rna=rna,
                 report_location_z=report_location_z,
+                show_region_interaction=show_region_interaction,
                 top_movers_out=top_movers
                 )
     end

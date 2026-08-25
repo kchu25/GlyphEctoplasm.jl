@@ -20,6 +20,10 @@ function plot_motifs_mut_case(data, m,
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
         top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        show_region_interaction=false, # region interaction is still computed and still
+                                       # written to top_motifs.csv; this only decides
+                                       # whether the popup and the metadata column
+                                       # print it (and its p-value). Off by default.
         report_location_z=false,       # opt in to the per-motif location z-score: adds a
                                        # `location_z` column to the top-movers CSV and a
                                        # "location z" figure beside "p-value (NND)" on each
@@ -100,6 +104,7 @@ function plot_motifs_mut_case(data, m,
         gc_every = gc_every,               # Periodic incremental GC to bound peak RSS on large runs
         bg_max_points = bg_max_points,     # Optional cap on indicator-plot background points (nothing = off)
         report_location_z = report_location_z,  # Show the location z-score beside the NND p-value
+        show_region_interaction = show_region_interaction,  # Print the interaction line? (computed either way)
         feature_label = top_movers_label   # Assay name (+units) for each popup's interpretation line
     )
 
@@ -156,7 +161,8 @@ function plot_motifs_mut_case(data, m,
         page_title=page_title, nav_page_count=nav_page_count,
         protein_name=protein_name, protein_length=protein_length,
         wild_type=wild_type, feature_label=top_movers_label,
-        generalization_warning=generalization_warning
+        generalization_warning=generalization_warning,
+        show_epistasis=show_region_interaction   # hides the metadata column's interaction line
     )
 
     # Same ranking, dumped at full precision for cross-dataset comparison.

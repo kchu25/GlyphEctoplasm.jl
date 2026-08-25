@@ -887,6 +887,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         pts = nothing, all_indices = nothing, nnd_k = 15,
         interaction_summaries = nothing, top_movers_out = nothing, bg_max_points = nothing,
         report_location_z::Bool = false,
+        show_region_interaction::Bool = false,   # display the region-interaction line? computed either way
         feature_label = nothing)
     EntroPlots.save_logo_with_rect_gaps(
         meta.count_matrices, meta.positions, meta.total_length,
@@ -963,7 +964,9 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         use_rna=meta.use_rna,
         relaxed_median=nothing,
         show_meme_and_csv=false,
-        interaction_summary_mode_str=interaction_str,
+        # Computed above regardless — `show_region_interaction` only decides
+        # whether the popup prints it. The CSV keeps the value either way.
+        interaction_summary_mode_str=(show_region_interaction ? interaction_str : nothing),
         nnd_result=nnd_result,
         report_location_z=report_location_z,
         description=description
@@ -1043,6 +1046,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         nnd_k = 15, top_movers_out = nothing,
         gc_every::Int = 25, bg_max_points = nothing,
         report_location_z::Bool = false,  # also show the location z-score on each card
+        show_region_interaction::Bool = false,  # display the region-interaction line? computed either way
         feature_label = nothing)   # assay name (+units) for the interpretation sentence
 
     # Flatten if needed (handles both single vector and vector of vectors)
@@ -1082,6 +1086,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                 pts=pts, all_indices=all_indices, nnd_k=nnd_k,
                 interaction_summaries=interaction_summaries, top_movers_out=top_movers_out,
                 bg_max_points=bg_max_points, report_location_z=report_location_z,
+                show_region_interaction=show_region_interaction,
                 feature_label=feature_label
             )
             push!(registered_names, display_name)  # Track registration
