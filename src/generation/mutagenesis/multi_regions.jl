@@ -701,12 +701,26 @@ function motif_wt_regions(meta)
         # `has_mut`, not `differs`: a column where most sequences keep the wild
         # type but a mutated subset drives the effect is precisely an interesting
         # site, and `observed_residue_string` names its tallest red letter.
+        # The gate is `has_mut` whenever we have a span, whether or not the span
+        # covers the whole window. It used to fall back to `differs` when the
+        # span covered every column, which is ALWAYS true for a single-region
+        # motif — so every single-region motif produced an empty interpretation,
+        # and a multi-region motif silently dropped any region whose window the
+        # span fully covered. (On the RNA sim, motif `(7:14, 36, 38:41)` reported
+        # only sites 36 and 38-41; `7:14` vanished.)
+        #
+        # `differs` is the wrong test for mutagenesis. It asks whether a column's
+        # MODAL residue is non-wild-type, but each variant carries only a handful
+        # of substitutions, so the modal residue is the wild type almost
+        # everywhere and `differs` is false almost everywhere. `has_mut` asks
+        # whether the column carries any mutated mass at all, which is the
+        # question the surrounding comment already says we want to ask.
         mutated = if has_mut === nothing
             in_frag                                  # no reference: span is all we have
-        elseif !isempty(frag) && !all(in_frag)
-            in_frag .& has_mut                       # span pinpoints → its columns that carry mutations
+        elseif !isempty(frag)
+            in_frag .& has_mut                       # span known → its columns that carry mutations
         else
-            differs                                  # span covers the window → modal-residue test, as before
+            differs                                  # no span at all → modal-residue test
         end
         obs = observed_residue_string(cmat, ref;
             use_rna = hasproperty(meta, :use_rna) ? meta.use_rna : false)

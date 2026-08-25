@@ -272,4 +272,59 @@ using GlyphEctoplasm.PNGFiles
                         report_location_z=true).location_z[1])
     end
 
+
+    @testset "collapse_runs" begin
+        cr = GlyphEctoplasm.collapse_runs
+        @test cr(Int[]) == ""
+        @test cr([7]) == "7"
+        @test cr([4, 5]) == "4, 5"            # a run of 2 is not worth a dash
+        @test cr([4, 5, 6]) == "4-6"
+        @test cr([1, 3, 5]) == "1, 3, 5"
+        @test cr([36, 38, 39, 40, 41]) == "36, 38-41"
+        # position tokens and residue tokens collapse against one shared run list
+        runs = GlyphEctoplasm.integer_runs([7,8,9,10,11,12,13,14,36,38,39,40,41])
+        @test length(runs) == 3
+        @test GlyphEctoplasm._run_residue_tokens(collect("GGUGUUGCUCGAC"), runs) ==
+              ["GGUGUUGC", "U", "CGAC"]
+        @test cr([11, 12, 13, 14, 15, 16, 17, 21, 23, 24, 25, 26, 27]) == "11-17, 21, 23-27"
+    end
+
+    @testset "region_window_span" begin
+        W = GlyphEctoplasm.WildTypeRegion
+        rws = GlyphEctoplasm.region_window_span
+        @test rws(W[]) == ""
+        @test rws([W("ACGUACGU", 17, falses(8), "--------")]) == "17:24"
+        @test rws([W("ACGUACGU", 17, falses(8), "--------"),
+                   W("ACGUACGU", 36, falses(8), "--------")]) == "(17:24, 36:43)"
+        # window length comes from the WT string, not a fixed receptive field
+        @test rws([W("ACG", 5, falses(3), "---")]) == "5:7"
+    end
+
+    @testset "mutation_description uses ranges" begin
+        W = GlyphEctoplasm.WildTypeRegion
+        md = GlyphEctoplasm.mutation_description
+        r = W("ACGUACGU", 36, Bool[1, 0, 1, 1, 1, 1, 0, 0], "UXCGAC--")
+        # residues collapse against the same runs as the positions
+        @test md([r], 0.13, "the measured value") ==
+              "Mutations at sites 36, 38-41 to U, CGAC respectively increase the measured value."
+        # one run collapses to a single token pair, so "respectively" is dropped
+        r1run = W("ACGUACGU", 7, trues(8), "CUCUCGUC")
+        @test md([r1run], 1.0, "the measured value") ==
+              "Mutations at sites 7-14 to CUCUCGUC increase the measured value."
+        # a run of two stays as two tokens on BOTH sides
+        r2 = W("ACGU", 10, Bool[1, 1, 0, 0], "GC--")
+        @test md([r2], 1.0, "fitness") ==
+              "Mutations at sites 10, 11 to G, C respectively increase fitness."
+        # multi-region: one token per run, in position order
+        ra = W("ACGUACGU", 7, trues(8), "GGUGUUGC")
+        rb = W("ACGUACGU", 36, Bool[1, 0, 1, 1, 1, 1, 0, 0], "UXCGAC--")
+        @test md([ra, rb], 0.13, "the measured value") ==
+              "Mutations at sites 7-14, 36, 38-41 to GGUGUUGC, U, CGAC respectively increase the measured value."
+        # single site keeps the singular sentence, no range machinery
+        r1 = W("ACGU", 10, Bool[0, 1, 0, 0], "-C--")
+        @test md([r1], -0.5, "fitness") == "Mutation at site 11 to C decreases fitness."
+        # placeholder columns are still skipped
+        rp = W("ACGU", 10, Bool[1, 1, 0, 0], "--__")
+        @test md([rp], 0.5, "fitness") == ""
+    end
 end

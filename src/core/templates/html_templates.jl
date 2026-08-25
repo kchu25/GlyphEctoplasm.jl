@@ -909,14 +909,14 @@ html_template_top_movers = mt"""<!DOCTYPE html>
         {{{:protein_header}}}
 
         <div class="top-movers-section">
-            <h2 class="top-movers-heading top-movers-heading-pos">Top positive motifs</h2>
+            <h2 class="top-movers-heading top-movers-heading-pos">Strongest increases</h2>
             <div class="top-movers-list">
                 {{{:positive_rows}}}
             </div>
         </div>
 
         <div class="top-movers-section">
-            <h2 class="top-movers-heading top-movers-heading-neg">Top negative motifs</h2>
+            <h2 class="top-movers-heading top-movers-heading-neg">Strongest decreases</h2>
             <div class="top-movers-list">
                 {{{:negative_rows}}}
             </div>

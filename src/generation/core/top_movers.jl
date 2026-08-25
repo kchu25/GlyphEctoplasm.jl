@@ -32,6 +32,26 @@ struct WildTypeRegion
 end
 
 """
+    region_window_span(regions) -> String
+
+The span of sequence the motif's FILTER windows cover, e.g. `"(17:24, 36:43)"`,
+derived from each region's start and window length.
+
+This is not the same thing as `TopMoverEntry.span`, which lists the individual
+positions that carry mutations (`"(17:18, 20:23, 36:40, 42)"`). The region-view
+logo draws whole windows, so labelling it with scattered mutation positions
+mislabels what the picture shows. One region renders bare (`"17:24"`); two or
+more are parenthesised, matching how `span` is written.
+
+Returns `""` for an empty vector, which callers use to fall back to `span`.
+"""
+function region_window_span(regions::AbstractVector{WildTypeRegion})
+    isempty(regions) && return ""
+    wins = [string(r.start, ":", r.start + length(r.wt) - 1) for r in regions]
+    return length(wins) == 1 ? wins[1] : string("(", join(wins, ", "), ")")
+end
+
+"""
     mutation_description(regions, median, label) -> String
 
 Plain-language summary of what a mutation motif does, e.g.
@@ -92,10 +112,101 @@ function mutation_description(regions::AbstractVector{WildTypeRegion},
         return string("Mutation at site ", sites[1], " to ", residues[1], " ",
                       verb_up ? "increases" : "decreases", " ", what, ".")
     end
-    return string("Mutations at sites ", join(sites, ", "), " to ",
-                  join(residues, ", "), " respectively ",
-                  verb_up ? "increase" : "decrease", " ", what, ".")
+    # Positions collapse to ranges and the residues collapse the SAME way, so
+    # the two lists stay token-for-token aligned:
+    #   "7-14, 36, 38-41 to GGUGUUGC, U, CGAC respectively"
+    runs = integer_runs(sites)
+    pos_toks = _run_position_tokens(sites, runs)
+    res_toks = _run_residue_tokens(residues, runs)
+    # "respectively" only earns its place when there are two or more tokens to
+    # pair up. One run collapses to a single token on each side ("sites 7-14 to
+    # CUCUCGUC"), where the word is noise.
+    resp = length(pos_toks) > 1 ? " respectively " : " "
+    return string("Mutations at sites ", join(pos_toks, ", "),
+                  " to ", join(res_toks, ", "),
+                  resp, verb_up ? "increase" : "decrease", " ", what, ".")
 end
+
+"""
+    integer_runs(xs) -> Vector{UnitRange{Int}}
+
+Index ranges into `xs` covering each maximal run of consecutive integers.
+`[11,12,13,21,23,24]` gives `[1:3, 4:4, 5:6]`.
+
+Positions and their residues are collapsed against the same run list, which is
+what keeps the two halves of the interpretation sentence aligned. Input is
+assumed sorted ascending.
+"""
+function integer_runs(xs::AbstractVector{<:Integer})
+    isempty(xs) && return UnitRange{Int}[]
+    runs = UnitRange{Int}[]
+    i, n = 1, length(xs)
+    while i <= n
+        j = i
+        while j < n && xs[j + 1] == xs[j] + 1
+            j += 1
+        end
+        push!(runs, i:j)
+        i = j + 1
+    end
+    return runs
+end
+
+# A run is worth collapsing only at length 3+. "4-5" is no shorter than "4, 5"
+# and reads worse, and the residue side would turn a two-letter run into a
+# two-letter token that looks like a single substitution.
+_collapsible(r) = length(r) >= 3
+
+"""
+    _run_position_tokens(sites, runs) -> Vector{String}
+
+One token per run: `"11-17"` for a collapsible run, otherwise one token per
+position.
+"""
+function _run_position_tokens(sites, runs)
+    toks = String[]
+    for r in runs
+        if _collapsible(r)
+            push!(toks, string(sites[first(r)], "-", sites[last(r)]))
+        else
+            for k in r
+                push!(toks, string(sites[k]))
+            end
+        end
+    end
+    return toks
+end
+
+"""
+    _run_residue_tokens(residues, runs) -> Vector{String}
+
+The residue counterpart of [`_run_position_tokens`](@ref): a collapsible run
+becomes one concatenated string (`"GGUGUUGC"`), so it lines up with the `"7-14"`
+on the position side. Non-collapsible runs contribute one token per residue.
+"""
+function _run_residue_tokens(residues, runs)
+    toks = String[]
+    for r in runs
+        if _collapsible(r)
+            push!(toks, String(residues[r]))
+        else
+            for k in r
+                push!(toks, string(residues[k]))
+            end
+        end
+    end
+    return toks
+end
+
+"""
+    collapse_runs(xs) -> String
+
+A sorted integer vector with consecutive runs written as ranges:
+`[11,12,13,14,15,16,17,21,23,24,25,26,27]` becomes `"11-17, 21, 23-27"`.
+Runs shorter than 3 stay listed individually.
+"""
+collapse_runs(xs::AbstractVector{<:Integer}) =
+    join(_run_position_tokens(xs, integer_runs(xs)), ", ")
 
 """
     TopMoverEntry
@@ -323,14 +434,20 @@ function top_mover_row_html(e::TopMoverEntry, rowid::Int; show_epistasis::Bool=t
     # Both open the same motif modal, each showing its own view. When the view
     # paths are empty (convolution) fall back to the original single card.
     dual = !isempty(e.img_reduced) && !isempty(e.img_region)
+    # The region-view logo draws whole filter windows, so it is labelled with
+    # those windows rather than with the scattered mutation positions in `span`.
+    # The reduced view, the metadata panel and the CSV keep `span` unchanged.
+    region_name = let rs = region_window_span(e.wt_regions)
+        isempty(rs) ? name : _tm_esc(rs)
+    end
     cards_html, row_class = if dual
         (string(
             "<div class=\"top-mover-card\" data-median=\"$(e.median)\" onclick=\"openTopMover($rowid, 'reduced')\">",
             "<img src=\"$(e.img_reduced)\" alt=\"$name\" class=\"singleton-img\">",
             "<span class=\"singleton-filter-overlay\">$name</span></div>",
             "<div class=\"top-mover-card\" data-median=\"$(e.median)\" onclick=\"openTopMover($rowid, 'region')\">",
-            "<img src=\"$(e.img_region)\" alt=\"$name\" class=\"singleton-img\">",
-            "<span class=\"singleton-filter-overlay\">$name</span></div>"),
+            "<img src=\"$(e.img_region)\" alt=\"$region_name\" class=\"singleton-img\">",
+            "<span class=\"singleton-filter-overlay\">$region_name</span></div>"),
          "top-mover-row dual")
     else
         (string(
@@ -434,9 +551,9 @@ function render_top_movers_page!(save_path::AbstractString;
     header = (any(is_dual, positives) || any(is_dual, negatives)) ?
         top_mover_header_row_html() * "\n" : ""
 
-    pos_html = isempty(positives) ? "<p class=\"top-mover-empty\">No positive motifs.</p>" :
+    pos_html = isempty(positives) ? "<p class=\"top-mover-empty\">No motifs increase the measured value.</p>" :
         header * join((top_mover_row_html(e, i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(positives)), "\n")
-    neg_html = isempty(negatives) ? "<p class=\"top-mover-empty\">No negative motifs.</p>" :
+    neg_html = isempty(negatives) ? "<p class=\"top-mover-empty\">No motifs decrease the measured value.</p>" :
         header * join((top_mover_row_html(e, length(positives) + i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(negatives)), "\n")
 
     html_rendered = Mustache.render(html_template_top_movers;
