@@ -226,3 +226,41 @@ function generalization_warning_html(test_r2; threshold=DEFAULT_GENERALIZATION_W
         "Treat everything below as unverified until R&sup2; improves.",
         "</div></div>")
 end
+
+# ────────────────────────────────────────────────────────────────────────────
+# Label-transform note
+#
+# The pipeline can now choose the label normalization from the dataset itself
+# (MotifInference `:auto`). That choice changes the meaning of every number on
+# the page: under a log transform the predictions, the Shapley medians and the
+# indicator axis are all on the log scale. A reader who does not know which
+# scale they are looking at cannot read the page correctly.
+#
+# So whenever the choice was made automatically, it is stated here.
+# ────────────────────────────────────────────────────────────────────────────
+
+"""
+    transform_note_html(note) -> String
+
+An informational banner naming the label transform, or `""` when `note` is
+empty or `nothing`.
+
+`note` is a plain sentence produced by the caller, for example
+*"log, chosen automatically: every label is positive (min 0.001) and the labels
+are right skewed (skew 5.99). Predictions and motif values are on the log
+scale."*
+
+This is not a warning. It renders in the neutral informational style, because a
+transform having been applied is normal and expected.
+"""
+function transform_note_html(note)
+    note === nothing && return ""
+    txt = strip(string(note))
+    isempty(txt) && return ""
+    esc = replace(txt, "&" => "&amp;", "<" => "&lt;", ">" => "&gt;")
+    return string(
+        "<div class=\"transform-note\" role=\"note\">",
+        "<span class=\"transform-note-badge\">Label transform</span>",
+        "<div class=\"transform-note-body\">", esc, "</div></div>")
+end
+

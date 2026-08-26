@@ -31,6 +31,10 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
         top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        transform_note="",             # sentence describing how the labels were transformed
+                                       # (MotifInference sets this when it chooses the
+                                       # normalization automatically). "" => nothing is shown,
+                                       # which is exactly the previous output.
         show_region_interaction=false, # region interaction is still computed and still
                                        # written to the top-movers CSV; this only decides
                                        # whether the popup prints it. Off by default.
@@ -123,7 +127,11 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
     render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
 
+    # Empty note => empty string => the slot renders exactly as it did before.
+    transform_banner = transform_note_html(transform_note)
+
     render_and_save_outputs!(json_motifs, html_dict, 1;
+        generalization_warning=transform_banner,
         html_template=html_template_unified,
         script_template=script_template,
         css_template=template_css,
@@ -149,6 +157,7 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         page_title=page_title, nav_page_count=nav_page_count,
         protein_name=protein_name, protein_length=protein_length,
         show_epistasis=false,       # convolution case: hide the epistasis line
+        generalization_warning=transform_banner,
         modal_scroll_fix=true       # give the detail popup its own scrollbar
     )
 

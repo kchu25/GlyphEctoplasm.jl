@@ -18,6 +18,24 @@ template_css = mt"""
    Shown on the motif and summary pages when held-out R2 is below threshold.
    The motif list is a ranking (top/bottom N by median Banzhaf), not a
    significance test, so it reports groups even on data with no signal. */
+.transform-note{
+    display:flex; gap:0.75rem; align-items:flex-start;
+    margin:0 auto 1.1rem auto; max-width:1100px;
+    padding:0.7rem 0.95rem; border-radius:8px;
+    background:#eef4fa; color:#173a5e; border:1px solid #9fc0dd;
+    font-size:0.92rem; line-height:1.45;
+}
+.transform-note-badge{
+    flex:0 0 auto; font-weight:700; letter-spacing:0.02em;
+    text-transform:uppercase; font-size:0.74rem;
+    padding:0.16rem 0.5rem; border-radius:5px;
+    background:#9fc0dd; color:#123;
+}
+.transform-note-body{flex:1 1 auto;}
+@media (prefers-color-scheme: dark){
+    .transform-note{background:#152230; color:#cfe2f4; border-color:#3f6f9c;}
+    .transform-note-badge{background:#3f6f9c; color:#eaf3fb;}
+}
 .generalization-warning{
     display:flex; gap:14px; align-items:flex-start;
     max-width:1100px; margin:18px auto 6px auto; padding:14px 18px;

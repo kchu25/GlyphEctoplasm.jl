@@ -327,4 +327,21 @@ using GlyphEctoplasm.PNGFiles
         rp = W("ACGU", 10, Bool[1, 1, 0, 0], "--__")
         @test md([rp], 0.5, "fitness") == ""
     end
+
+    @testset "transform_note_html" begin
+        tn = GlyphEctoplasm.transform_note_html
+        # default: nothing rendered, so existing output is unchanged
+        @test tn("") == ""
+        @test tn(nothing) == ""
+        @test tn("   ") == ""
+        h = tn("log, chosen automatically: skew 5.99.")
+        @test occursin("transform-note", h)
+        @test occursin("Label transform", h)
+        @test occursin("skew 5.99", h)
+        # the note is escaped, never injected as markup
+        @test occursin("&lt;b&gt;", tn("<b>x</b>"))
+        @test !occursin("<b>", tn("<b>x</b>"))
+        @test occursin("&amp;", tn("a &amp b"))
+    end
+
 end

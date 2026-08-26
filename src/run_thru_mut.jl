@@ -20,6 +20,10 @@ function plot_motifs_mut_case(data, m,
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
         top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        transform_note="",             # sentence describing how the labels were transformed
+                                       # (MotifInference sets this when it chooses the
+                                       # normalization automatically). "" => nothing is shown,
+                                       # which is exactly the previous output.
         show_region_interaction=false, # region interaction is still computed and still
                                        # written to top_motifs.csv; this only decides
                                        # whether the popup and the metadata column
@@ -64,6 +68,11 @@ function plot_motifs_mut_case(data, m,
     catch
         ""
     end
+
+    # The transform note sits ABOVE the low-generalization banner in the same
+    # template slot, so no template change is needed and both the motif page and
+    # the summary page carry it. Empty note => the slot is byte-identical to before.
+    generalization_warning = transform_note_html(transform_note) * generalization_warning
 
     # Single configuration object for all mutation region analysis
     m_config = MutationRegionConfig(data;
