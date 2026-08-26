@@ -108,9 +108,16 @@ function mutation_description(regions::AbstractVector{WildTypeRegion},
            "the measured value" : strip(String(label))
     verb_up = median > 0
 
+    # The magnitude is the motif's median Banzhaf value. That number is already
+    # in the assay's own units: BanzhafInference composes the scale-back function
+    # into the computation, so a run trained on log or z-scored labels still
+    # reports influences on the original scale.
+    mag = _format_magnitude(abs(float(median)))
+
     if length(sites) == 1
         return string("Mutation at site ", sites[1], " to ", residues[1], " ",
-                      verb_up ? "increases" : "decreases", " ", what, ".")
+                      verb_up ? "increases" : "decreases", " ", what,
+                      " by about ", mag, ".")
     end
     # Positions collapse to ranges and the residues collapse the SAME way, so
     # the two lists stay token-for-token aligned:
@@ -124,7 +131,27 @@ function mutation_description(regions::AbstractVector{WildTypeRegion},
     resp = length(pos_toks) > 1 ? " respectively " : " "
     return string("Mutations at sites ", join(pos_toks, ", "),
                   " to ", join(res_toks, ", "),
-                  resp, verb_up ? "increase" : "decrease", " ", what, ".")
+                  resp, verb_up ? "increase" : "decrease", " ", what,
+                  " by about ", mag, ".")
+end
+
+"""
+    _format_magnitude(x) -> String
+
+`x` rendered with 3 significant digits, and without an exponent for values a
+reader can read directly. Assay units span many orders of magnitude -- ddG is
+around 1, a ribozyme rate can be 1e-3 -- so a fixed number of decimal places
+would print `0.00` for a real effect.
+"""
+function _format_magnitude(x::Real)
+    (isnan(x) || !isfinite(x)) && return "?"
+    x == 0 && return "0"
+    ax = abs(x)
+    if ax >= 0.01 && ax < 1e5
+        digits = ax >= 10 ? 1 : (ax >= 1 ? 2 : 4)
+        return string(round(x; digits=digits))
+    end
+    return string(round(x; sigdigits=3))
 end
 
 """
