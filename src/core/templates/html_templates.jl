@@ -921,6 +921,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
                 {{{:negative_rows}}}
             </div>
         </div>
+        {{{:transform_note}}}
     </div>
 
     <!-- Self-contained detail modal (singleton-style layout, reused for every row) -->
@@ -1250,6 +1251,7 @@ html_template_generalization = mt"""<!DOCTYPE html>
                 R² values indicate the correlation strength between each pair.
             </p>
         </div>
+        {{{:transform_note}}}
     </div>
     
     <script>

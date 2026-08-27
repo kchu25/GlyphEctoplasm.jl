@@ -32,6 +32,13 @@ template_css = mt"""
     background:#9fc0dd; color:#123;
 }
 .transform-note-body{flex:1 1 auto;}
+/* Footnote placement: separated from the content above, and quieter, since by
+   the time a reader reaches it they have already seen the numbers it describes. */
+.transform-note-bottom{
+    margin:2.25rem auto 0.5rem auto;
+    font-size:0.86rem;
+    border-top-width:1px;
+}
 @media (prefers-color-scheme: dark){
     .transform-note{background:#152230; color:#cfe2f4; border-color:#3f6f9c;}
     .transform-note-badge{background:#3f6f9c; color:#eaf3fb;}

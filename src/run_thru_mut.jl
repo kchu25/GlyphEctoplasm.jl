@@ -69,10 +69,23 @@ function plot_motifs_mut_case(data, m,
         ""
     end
 
-    # The transform note sits ABOVE the low-generalization banner in the same
-    # template slot, so no template change is needed and both the motif page and
-    # the summary page carry it. Empty note => the slot is byte-identical to before.
-    generalization_warning = transform_note_html(transform_note) * generalization_warning
+    # The transform note is NOT a caveat on what is displayed: every transform the
+    # pipeline chooses maps its numbers back to the assay's own units, and each note
+    # says so. It is a record of what happened during training, so it belongs at the
+    # bottom of the generalization page — beside the fit it actually describes — not
+    # at the top of every motif card page.
+    #
+    # The low-generalization banner keeps `generalization_warning` and keeps the top
+    # of the page. That one IS a warning and decides whether the page is worth
+    # reading at all.
+    #
+    # Fallback: no held-out points means no generalization page (see below), so the
+    # note would vanish. It goes to the bottom of the summary page instead rather
+    # than being dropped silently.
+    transform_banner  = transform_note_html(transform_note; bottom=true)
+    note_on_genpage   = pts_test !== nothing
+    genpage_note      = note_on_genpage ? transform_banner : ""
+    summary_note      = note_on_genpage ? "" : transform_banner
 
     # Single configuration object for all mutation region analysis
     m_config = MutationRegionConfig(data;
@@ -144,7 +157,8 @@ function plot_motifs_mut_case(data, m,
             page_title=page_title,
             nav_page_count=nav_page_count,
             image_filename="generalization.png",
-            has_summary=true
+            has_summary=true,
+            transform_note=genpage_note
         )
     end
 
@@ -171,6 +185,7 @@ function plot_motifs_mut_case(data, m,
         protein_name=protein_name, protein_length=protein_length,
         wild_type=wild_type, feature_label=top_movers_label,
         generalization_warning=generalization_warning,
+        transform_note=summary_note,
         show_epistasis=show_region_interaction   # hides the metadata column's interaction line
     )
 

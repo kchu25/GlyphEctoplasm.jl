@@ -103,7 +103,8 @@ function render_generalization_page!(save_path::AbstractString;
         page_title::AbstractString="n/a",
         nav_page_count::Integer=4,
         image_filename::AbstractString="generalization.png",
-        has_summary::Bool=false
+        has_summary::Bool=false,
+        transform_note::AbstractString=""   # rendered BELOW the figure; "" => nothing is shown
         )
 
     # Ensure save_path directory exists
@@ -115,7 +116,8 @@ function render_generalization_page!(save_path::AbstractString;
         j=2,
         upto=nav_page_count,
         image_path=image_filename,
-        has_summary=has_summary ? "true" : "false"
+        has_summary=has_summary ? "true" : "false",
+        transform_note=transform_note
     )
     
     # Write HTML file

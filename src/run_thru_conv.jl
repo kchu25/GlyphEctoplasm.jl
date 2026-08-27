@@ -115,23 +115,23 @@ function plot_motifs_conv_case(data, m, motif_sizes,
     
     publication_kde_panel(data_pairs, save_path=joinpath(save_path, "generalization.png"))
 
-    # Render generalization page (index2.html)
+    # Render generalization page (index2.html). It carries the label-transform
+    # note at its foot — see the mutagenesis case for why the note lives here and
+    # not atop the motif pages. This page is unconditional in the convolution
+    # path, so no fallback placement is needed.
     render_generalization_page!(save_path;
         page_title=page_title,
         nav_page_count=nav_page_count,
         image_filename="generalization.png",
-        has_summary=true
+        has_summary=true,
+        transform_note=transform_note_html(transform_note; bottom=true)
     )
 
     # Render statistics (index3.html) and readme (index4.html) docs pages
     render_statistics_page!(save_path; page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
     render_readme_page!(save_path;     page_title=page_title, nav_page_count=nav_page_count, has_summary=true)
 
-    # Empty note => empty string => the slot renders exactly as it did before.
-    transform_banner = transform_note_html(transform_note)
-
     render_and_save_outputs!(json_motifs, html_dict, 1;
-        generalization_warning=transform_banner,
         html_template=html_template_unified,
         script_template=script_template,
         css_template=template_css,
@@ -157,7 +157,6 @@ function plot_motifs_conv_case(data, m, motif_sizes,
         page_title=page_title, nav_page_count=nav_page_count,
         protein_name=protein_name, protein_length=protein_length,
         show_epistasis=false,       # convolution case: hide the epistasis line
-        generalization_warning=transform_banner,
         modal_scroll_fix=true       # give the detail popup its own scrollbar
     )
 

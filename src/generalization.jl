@@ -252,14 +252,27 @@ scale."*
 
 This is not a warning. It renders in the neutral informational style, because a
 transform having been applied is normal and expected.
+
+`bottom=true` adds the `transform-note-bottom` class, which is the placement the
+motif and summary pages use: the note is a footnote about the axis units, not
+something a reader needs before they can look at the figures. The low-generalization
+banner keeps the top of the page, because that one IS a warning and changes whether
+the page should be read at all.
+
+Where it actually appears is decided by the caller — see `plot_motifs_mut_case`.
+Every transform the pipeline chooses maps its numbers back to the assay's own
+units, so the note is a record of what happened during training, not a caveat on
+what is displayed. It therefore sits at the bottom of the generalization page
+alone, and is left off the motif and summary pages entirely.
 """
-function transform_note_html(note)
+function transform_note_html(note; bottom::Bool=false)
     note === nothing && return ""
     txt = strip(string(note))
     isempty(txt) && return ""
     esc = replace(txt, "&" => "&amp;", "<" => "&lt;", ">" => "&gt;")
+    cls = bottom ? "transform-note transform-note-bottom" : "transform-note"
     return string(
-        "<div class=\"transform-note\" role=\"note\">",
+        "<div class=\"", cls, "\" role=\"note\">",
         "<span class=\"transform-note-badge\">Label transform</span>",
         "<div class=\"transform-note-body\">", esc, "</div></div>")
 end

@@ -533,6 +533,8 @@ function render_top_movers_page!(save_path::AbstractString;
         show_epistasis::Bool=true,      # set false to hide the epistasis line (convolution case)
         modal_scroll_fix::Bool=false,   # set true to give the detail popup its own scrollbar
         generalization_warning::AbstractString="",  # "" => nothing is shown (default)
+        transform_note::AbstractString="",  # rendered at the BOTTOM of the page; only used
+                                            # when there is no generalization page to carry it
         file::AbstractString="index.html")
 
     mkpath(save_path)
@@ -587,6 +589,7 @@ function render_top_movers_page!(save_path::AbstractString;
         protein_name=page_title,
         protein_header=protein_header,
         generalization_warning=generalization_warning,
+        transform_note=transform_note,
         extra_head=extra_head,
         upto=nav_page_count,
         top_mover_data=data_js,
