@@ -95,6 +95,7 @@ include("generalization.jl")
 include("run_nnd_sensitivity.jl")
 include("run_thru_conv.jl")
 include("run_thru_mut.jl")
+include("multirun.jl")
 
 # =============================================================================
 # Constants
