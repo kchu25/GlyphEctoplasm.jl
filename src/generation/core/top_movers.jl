@@ -535,6 +535,11 @@ function render_top_movers_page!(save_path::AbstractString;
         generalization_warning::AbstractString="",  # "" => nothing is shown (default)
         transform_note::AbstractString="",  # rendered at the BOTTOM of the page; only used
                                             # when there is no generalization page to carry it
+        runs_nav::AbstractString="",        # consensus page: links to the individual runs
+        nav_override::AbstractString="null",# JS array of [href,label]; "null" = numbered nav
+        consensus_rows::Union{Nothing,AbstractVector}=nothing,
+                                            # one provenance line per row, positives then
+                                            # negatives, appended under each card
         file::AbstractString="index.html")
 
     mkpath(save_path)
@@ -580,16 +585,21 @@ function render_top_movers_page!(save_path::AbstractString;
     header = (any(is_dual, positives) || any(is_dual, negatives)) ?
         top_mover_header_row_html() * "\n" : ""
 
+    # Consensus pages append a provenance line under each card; `nothing` (every
+    # ordinary render) leaves the rows byte-identical to before.
+    note(k) = consensus_rows === nothing || k > length(consensus_rows) ? "" : String(consensus_rows[k])
     pos_html = isempty(positives) ? "<p class=\"top-mover-empty\">No motifs increase the measured value.</p>" :
-        header * join((top_mover_row_html(e, i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(positives)), "\n")
+        header * join((top_mover_row_html(e, i - 1; show_epistasis=show_epistasis) * note(i) for (i, e) in enumerate(positives)), "\n")
     neg_html = isempty(negatives) ? "<p class=\"top-mover-empty\">No motifs decrease the measured value.</p>" :
-        header * join((top_mover_row_html(e, length(positives) + i - 1; show_epistasis=show_epistasis) for (i, e) in enumerate(negatives)), "\n")
+        header * join((top_mover_row_html(e, length(positives) + i - 1; show_epistasis=show_epistasis) * note(length(positives) + i) for (i, e) in enumerate(negatives)), "\n")
 
     html_rendered = Mustache.render(html_template_top_movers;
         protein_name=page_title,
         protein_header=protein_header,
         generalization_warning=generalization_warning,
         transform_note=transform_note,
+        runs_nav=runs_nav,
+        nav_override=nav_override,
         extra_head=extra_head,
         upto=nav_page_count,
         top_mover_data=data_js,
@@ -722,3 +732,107 @@ end
 
 export TopMoverEntry, select_top_movers, render_top_movers_page!,
        top_movers_dataframe, write_top_movers_csv
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Machine-readable dump of the top movers.
+#
+# `write_top_movers_csv` loses everything a page needs to be REDRAWN: the image
+# paths, the metadata texts, the wild-type regions. A consensus page built from
+# several runs has to rebuild real `TopMoverEntry` values from finished run
+# folders, so this dumps enough to do that, plus the path of each motif's carrier
+# CSV — which is what `multirun.jl` matches motifs on across runs.
+#
+# Paths are stored exactly as the entry holds them: relative to the rendering
+# folder. A reader that mounts the run elsewhere prefixes them; see
+# `read_top_movers_json`.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_wt_dict(r::WildTypeRegion) = Dict("wt"=>r.wt, "start"=>r.start,
+                                   "mutated"=>collect(r.mutated), "obs"=>r.obs)
+
+"""
+    top_movers_payload(positives, negatives; protein_name=nothing, label=nothing) -> Dict
+
+The data behind a rendered top-movers page, as plain `Dict`s. See
+[`write_top_movers_json`](@ref).
+"""
+function top_movers_payload(positives::AbstractVector{TopMoverEntry},
+                            negatives::AbstractVector{TopMoverEntry};
+                            protein_name=nothing, label=nothing)
+    entries = Dict{String,Any}[]
+    for (direction, es) in (("positive", positives), ("negative", negatives))
+        for (rank, e) in enumerate(es)
+            push!(entries, Dict{String,Any}(
+                "direction"=>direction, "rank"=>rank,
+                "median"=>e.median, "cluster_median"=>e.cluster_median,
+                "cluster_nnd"=>e.cluster_nnd, "count"=>e.count,
+                "display_name"=>e.display_name, "group_label"=>e.group_label,
+                "span"=>e.span, "nnd_p"=>e.nnd_p, "is_singleton"=>e.is_singleton,
+                "epistasis"=>e.epistasis, "location_z"=>e.location_z,
+                "wt_regions"=>[_wt_dict(r) for r in e.wt_regions],
+                "img"=>e.img, "img_reduced"=>e.img_reduced, "img_region"=>e.img_region,
+                "influence"=>e.influence, "yy_kde"=>e.yy_kde,
+                "texts"=>collect(e.texts),
+                "variant_pwms"=>collect(e.variant_pwms),
+                "variant_labels"=>collect(e.variant_labels),
+                "variant_texts"=>[collect(v) for v in e.variant_texts],
+                # the motif's carrier list lives beside its logo, same stem
+                "carriers_csv"=>replace(e.img, r"\.png$"=>".csv"),
+            ))
+        end
+    end
+    Dict{String,Any}("protein_name"=>something(protein_name, ""),
+                     "label"=>something(label, ""), "entries"=>entries)
+end
+
+"""
+    write_top_movers_json(path, positives, negatives; protein_name=nothing, label=nothing)
+
+Write [`top_movers_payload`](@ref) to `path`. Written beside `top_motifs.csv` on
+every render; the CSV stays the human/analysis artifact and this is the one a
+combiner reads.
+"""
+function write_top_movers_json(path::AbstractString,
+                               positives::AbstractVector{TopMoverEntry},
+                               negatives::AbstractVector{TopMoverEntry};
+                               protein_name=nothing, label=nothing)
+    mkpath(dirname(path))
+    open(path, "w") do io
+        JSON3.write(io, top_movers_payload(positives, negatives;
+                                           protein_name=protein_name, label=label))
+    end
+    return path
+end
+
+"""
+    read_top_movers_json(path; prefix="") -> (positives, negatives, carriers)
+
+Rebuild `TopMoverEntry` values from a dump. `prefix` is prepended to every asset
+path, so a page written one level above the run folder can point at
+`run_3/renderings_x/...` while the run's own page keeps working unchanged.
+
+`carriers` is a parallel vector of carrier-CSV paths (also prefixed), aligned to
+`vcat(positives, negatives)`.
+"""
+function read_top_movers_json(path::AbstractString; prefix::AbstractString="")
+    d = JSON3.read(read(path, String))
+    pos = TopMoverEntry[]; neg = TopMoverEntry[]; car = String[]
+    pre(p) = isempty(prefix) || isempty(p) ? String(p) : joinpath(prefix, String(p))
+    for e in d.entries
+        wt = [WildTypeRegion(String(r.wt), Int(r.start), Bool.(collect(r.mutated)), String(r.obs))
+              for r in e.wt_regions]
+        entry = TopMoverEntry(
+            Float64(e.median), Float64(e.cluster_median), Float64(e.cluster_nnd), Int(e.count),
+            String(e.display_name), String(e.group_label), String(e.span), Float64(e.nnd_p),
+            Bool(e.is_singleton), String(e.epistasis), wt,
+            pre(e.img), pre(e.img_reduced), pre(e.img_region), pre(e.influence), pre(e.yy_kde),
+            String.(collect(e.texts)), String.(collect(e.variant_pwms)),
+            String.(collect(e.variant_labels)),
+            [String.(collect(v)) for v in e.variant_texts], Float64(e.location_z))
+        push!(String(e.direction) == "positive" ? pos : neg, entry)
+        push!(car, pre(e.carriers_csv))
+    end
+    return pos, neg, car
+end
+
+export top_movers_payload, write_top_movers_json, read_top_movers_json

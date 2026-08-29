@@ -154,10 +154,12 @@ placeholder for the paper citation.
 function render_readme_page!(save_path::AbstractString;
         page_title::AbstractString="n/a",
         nav_page_count::Integer=4,
-        has_summary::Bool=false)
+        has_summary::Bool=false,
+        nav_override::AbstractString="null")
     mkpath(save_path)
     html_rendered = Mustache.render(html_template_readme,
         protein_name=page_title, j=4, upto=nav_page_count,
+        nav_override=nav_override,
         has_summary=has_summary ? "true" : "false")
     open(joinpath(save_path, "index4.html"), "w") do io
         print(io, html_rendered)

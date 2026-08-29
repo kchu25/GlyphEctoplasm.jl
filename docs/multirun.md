@@ -91,3 +91,65 @@ produces the same folder shape. To extend:
 2. note the conv generalization page is rendered unconditionally, whereas the
    mut one appears only when held-out points exist. A combiner that assumes
    `index2.html` exists will be right for conv and wrong for mut.
+
+---
+
+# Consensus top movers
+
+One page above the runs, showing the findings the runs agree on. Built by
+`consensus_top_movers(save_path; combiner=ConsensusTopMovers())`.
+
+## What it writes into `<save_path>`
+
+| file | contents |
+|---|---|
+| `index.html` | the consensus top-movers page: 5 increasing and 5 decreasing findings, each a real motif from a real run |
+| `index4.html` | readme placeholder |
+| `consensus_top_motifs.csv` | one row per displayed finding, with full provenance |
+| `consensus.json` | the selection and its parameters |
+
+Nothing inside the run folders is modified, so re-running with different
+parameters is free and reversible.
+
+## The two steps
+
+Scoring uses cross-run agreement, so it must happen **before** duplicates are
+collapsed — otherwise the evidence it needs is gone.
+
+1. **Score.** `motif_support` gives each motif the mean, over the other runs, of
+   its best match there. Matching (`motif_omega`) requires the same direction,
+   overlapping windows, and shared carriers. A run with no candidate contributes
+   `0`, not a skipped term.
+2. **Collapse.** `dedup_motifs` greedily emits the highest-support motif and drops
+   everything of the same direction whose window overlaps it by at least `rho`.
+   Greedy rather than connected components, which chain one window to the next
+   and fuse a whole region into a single finding.
+
+Full specification, with the reasoning for each condition and the ground-truth
+validation: `multirun_findings/12_method.md`.
+
+## Tracing a displayed row
+
+`consensus_top_motifs.csv` carries `from_run`, `logo_path` and `carriers_csv`,
+each relative to the folder holding the CSV. So a row resolves directly to the
+model that produced it, the image on the page, and the variants behind it:
+
+```
+from_run      run_3
+logo_path     run_3/renderings_1/mutation_regions_1/12_15:22.png
+carriers_csv  run_3/renderings_1/mutation_regions_1/12_15:22.csv
+```
+
+`support`, `n_runs` and `n_motifs` say how much corroboration the finding has.
+
+## Requirements
+
+Each run folder needs `top_motifs.json`, written beside `top_motifs.csv` on every
+mutagenesis render. Runs produced before that dump existed must be re-rendered;
+with the seed supplied this reloads the cached model rather than retraining.
+
+## Convolution
+
+Nothing in the combiner is mutagenesis-specific. `plot_motifs_conv_case` produces
+the same folder shape, so the conv path needs only `write_top_movers_json` wiring
+in beside its `write_top_movers_csv` call to use all of this unchanged.

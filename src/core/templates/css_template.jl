@@ -32,6 +32,28 @@ template_css = mt"""
     background:#9fc0dd; color:#123;
 }
 .transform-note-body{flex:1 1 auto;}
+/* consensus page: run links, and the provenance line under each card */
+/* Sits at the FOOT of the consensus page: the runs are provenance, not the
+   headline, so they must not compete with the motifs for attention. */
+.runs-nav{margin:2.6rem auto 0.6rem auto; max-width:1100px; font-size:0.84rem;
+    padding-top:1.1rem; border-top:1px solid #e2e8ee;
+    display:flex; flex-wrap:wrap; gap:.55rem; align-items:baseline;}
+.runs-nav-label{font-weight:700; letter-spacing:.03em; text-transform:uppercase;
+    font-size:0.7rem; color:#8b98a6; margin-right:.2rem;}
+.runs-nav a{color:#2c5f8a; text-decoration:none; padding:.1rem .45rem;
+    border:1px solid #cfdae5; border-radius:5px;}
+.runs-nav a:hover{background:#eef4fa;}
+/* Deliberately quiet: a reader should see the logo first and only look here
+   when they want to know how well corroborated it is. */
+.consensus-note{display:block; margin:-0.5rem auto 1.1rem auto; max-width:1100px;
+    font-size:0.79rem; color:#a3aeb9; letter-spacing:.01em;}
+.consensus-note code{font-size:0.95em;}
+@media (prefers-color-scheme: dark){
+    .runs-nav{border-top-color:#2b3a49;}
+    .runs-nav-label,.consensus-note{color:#6d7b89;}
+    .runs-nav a{color:#8fc0e8; border-color:#3f5468;}
+    .runs-nav a:hover{background:#182430;}
+}
 /* Footnote placement: separated from the content above, and quieter, since by
    the time a reader reaches it they have already seen the numbers it describes. */
 .transform-note-bottom{

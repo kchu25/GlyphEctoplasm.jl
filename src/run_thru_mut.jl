@@ -195,6 +195,10 @@ function plot_motifs_mut_case(data, m,
             protein_name=protein_name, label=top_movers_label,
             report_location_z=report_location_z,
             append=top_movers_csv_append)
+        # Same rows, but keeping the asset paths and metadata texts the CSV drops,
+        # so a consensus page can rebuild real entries from finished run folders.
+        write_top_movers_json(replace(top_movers_csv, r"\.csv$" => ".json"),
+            positives, negatives; protein_name=protein_name, label=top_movers_label)
     end
 
     # Shrink emitted PNGs in place (filenames unchanged; HTML/JS references intact)

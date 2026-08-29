@@ -921,6 +921,7 @@ html_template_top_movers = mt"""<!DOCTYPE html>
                 {{{:negative_rows}}}
             </div>
         </div>
+        {{{:runs_nav}}}
         {{{:transform_note}}}
     </div>
 
@@ -1008,10 +1009,20 @@ html_template_top_movers = mt"""<!DOCTYPE html>
     (function () {
         const upto = {{:upto}};
         const labels = {1: 'Motifs', 2: 'Generalization', 3: 'Statistics', 4: 'Readme'};
-        let links = '<a href="index.html" class="current">Top movers</a>';
-        for (let n = 1; n <= upto; n++) {
-            links += ' &nbsp&nbsp | &nbsp&nbsp ' +
-                `<a href="index${n}.html">${labels[n] || ('Page ' + n)}</a>`;
+        // A consensus page has only two destinations, so it passes an explicit
+        // list instead of a page count. null keeps the numbered behaviour.
+        const navOverride = {{{:nav_override}}};
+        let links;
+        if (navOverride) {
+            links = navOverride.map(function (p, i) {
+                return '<a href="' + p[0] + '"' + (i === 0 ? ' class="current"' : '') + '>' + p[1] + '</a>';
+            }).join(' &nbsp&nbsp | &nbsp&nbsp ');
+        } else {
+            links = '<a href="index.html" class="current">Top movers</a>';
+            for (let n = 1; n <= upto; n++) {
+                links += ' &nbsp&nbsp | &nbsp&nbsp ' +
+                    `<a href="index${n}.html">${labels[n] || ('Page ' + n)}</a>`;
+            }
         }
         document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('nav').innerHTML = links;
@@ -1263,6 +1274,8 @@ html_template_generalization = mt"""<!DOCTYPE html>
         const currentPage = 'index{{:j}}.html';
         const availablePages = createArray({{:upto}});
         
+        // A consensus page has only two destinations, so it passes an explicit
+        // list rather than a page count. Null keeps the numbered behaviour.
         const navHtml = availablePages.map(num => {
             const page = 'index' + num + '.html';
             const label = num === 1 ? 'Motifs' :
@@ -1487,6 +1500,14 @@ html_template_readme = mt"""<!DOCTYPE html>
     function updateNav() {
         const currentPage = 'index{{:j}}.html';
         const availablePages = createArray({{:upto}});
+        const navOverride = {{{:nav_override}}};
+        if (navOverride) {
+            document.getElementById('nav').innerHTML = navOverride
+                .map(p => '<a href="' + p[0] + '" ' +
+                     (currentPage === p[0] ? 'class="current"' : '') + '>' + p[1] + '</a>')
+                .join(' &nbsp;&nbsp; | &nbsp;&nbsp; ');
+            return;
+        }
         const navHtml = availablePages.map(num => {
             const page = 'index' + num + '.html';
             const label = num === 1 ? 'Motifs' :
