@@ -408,8 +408,14 @@ function consensus_top_movers(save_path::AbstractString;
 
     # The rows are real entries from real runs; only the provenance line is new.
     note(f) = _consensus_note(f, length(runs))
-    pe = [f.motif.entry for f in pos]
-    ne = [f.motif.entry for f in neg]
+    # Annotated, not inferred. A dataset can easily have findings in one
+    # direction only -- Pitt_2010_ribozyme yields negatives and no positives --
+    # and an empty comprehension gives `Vector{Any}`, which the typed
+    # `positives::AbstractVector{TopMoverEntry}` keyword below rejects with a
+    # TypeError. Naming the element type makes the empty case a valid empty
+    # vector rather than a crash.
+    pe = TopMoverEntry[f.motif.entry for f in pos]
+    ne = TopMoverEntry[f.motif.entry for f in neg]
     for (fs, es) in ((pos, pe), (neg, ne))
         for (f, e) in zip(fs, es)
             isempty(e.texts) || push!(e.texts, note(f))
