@@ -196,14 +196,24 @@ end
 "The consensus page has two destinations and no numbered pages of its own."
 const NAV_CONSENSUS = "[[\"index.html\",\"Top movers\"],[\"index4.html\",\"Readme\"]]"
 
-"One candidate motif, lifted out of a finished run folder."
+"""
+One candidate motif, lifted out of a finished run folder.
+
+A motif may span SEVERAL disjoint filter windows -- 45% of them do on real RNA
+data, up to seven. `wins` holds each window separately and `covered` is the set
+of positions they occupy. Collapsing them to a bounding interval, as an earlier
+version did, invented positions the model never looked at: windows 7:14 and
+41:48 became "7:48", claiming 42 positions for a motif that read 16, and any
+single-region motif sitting in the gap was then absorbed as a duplicate.
+"""
 struct RunMotif
     entry::TopMoverEntry
-    run::String            # "run_3"
-    dir::Int               # +1 / -1
-    win::UnitRange{Int}    # filter window, original coordinates
+    run::String                    # "run_3"
+    dir::Int                       # +1 / -1
+    wins::Vector{UnitRange{Int}}   # every filter window, original coordinates
+    covered::Set{Int}              # union of `wins`; what the motif actually reads
     carriers::Set{Int}
-    carriers_path::String  # run-relative path of the carrier CSV, for tracing
+    carriers_path::String          # run-relative path of the carrier CSV, for tracing
 end
 
 """
@@ -227,22 +237,42 @@ ConsensusTopMovers(; n::Int=5, rho::Real=0.25, min_runs::Int=1) =
 
 choose_runs(::ConsensusTopMovers, runs::Vector{RunRecord}) = runs   # all of them
 
-"Window of a carrier CSV: every row shares one, so the first row is enough."
-function _carrier_window(path::AbstractString)
+"""
+    _carrier_windows(path) -> (windows, covered, carrier_ids) or nothing
+
+Every distinct `(start_position, end_position)` pair in a motif's carrier CSV,
+the positions they cover, and the carrier ids. A multi-region motif contributes
+one row per window per carrier, so the distinct pairs are its windows.
+"""
+function _carrier_windows(path::AbstractString)
     isfile(path) || return nothing
     ls = readlines(path); length(ls) < 2 && return nothing
     h = split(ls[1], ','); si = findfirst(==("start_position"), h); ei = findfirst(==("end_position"), h)
     (si === nothing || ei === nothing) && return nothing
-    lo, hi = typemax(Int), typemin(Int); ids = Set{Int}()
     xi = findfirst(==("seq_index"), h)
+    wins = Set{Tuple{Int,Int}}(); ids = Set{Int}()
     for l in ls[2:end]
         p = split(l, ','); length(p) < max(si, ei, something(xi, 0)) && continue
         a = tryparse(Int, p[si]); b = tryparse(Int, p[ei])
-        (a === nothing || b === nothing) && continue
-        lo = min(lo, a); hi = max(hi, b)
+        (a === nothing || b === nothing || a > b) && continue
+        push!(wins, (a, b))
         xi === nothing || (v = tryparse(Int, p[xi]); v === nothing || push!(ids, v))
     end
-    lo > hi ? nothing : (lo:hi, ids)
+    isempty(wins) && return nothing
+    ws = sort([a:b for (a, b) in wins], by = first)
+    cov = Set{Int}(); for w in ws, q in w; push!(cov, q); end
+    return ws, cov, ids
+end
+
+"Format a set of positions as compact ranges: `7:14, 41:48`."
+function _fmt_positions(cov::Set{Int})
+    isempty(cov) && return ""
+    ps = sort(collect(cov)); parts = String[]; lo = ps[1]; prev = ps[1]
+    for q in ps[2:end]
+        q == prev + 1 ? (prev = q) : (push!(parts, lo == prev ? string(lo) : "$(lo):$(prev)"); lo = q; prev = q)
+    end
+    push!(parts, lo == prev ? string(lo) : "$(lo):$(prev)")
+    join(parts, ", ")
 end
 
 "Load every run's top movers as `RunMotif`s, with asset paths rewritten."
@@ -259,9 +289,9 @@ function collect_run_motifs(save_path::AbstractString, runs::Vector{RunRecord})
         pos, neg, car = read_top_movers_json(js; prefix=prefix)
         for (i, entry) in enumerate(vcat(pos, neg))
             dir  = i <= length(pos) ? 1 : -1
-            info = _carrier_window(joinpath(save_path, car[i]))
+            info = _carrier_windows(joinpath(save_path, car[i]))
             info === nothing && continue
-            push!(out, RunMotif(entry, rec.name, dir, info[1], info[2], car[i]))
+            push!(out, RunMotif(entry, rec.name, dir, info[1], info[2], info[3], car[i]))
         end
     end
     out
@@ -275,14 +305,15 @@ _ov(a::Set{Int}, b::Set{Int}) =
 "Pairwise agreement: same direction, overlapping windows, shared carriers."
 function motif_omega(g::RunMotif, h::RunMotif)
     g.dir == h.dir || return 0.0
-    isempty(intersect(g.win, h.win)) && return 0.0
+    # SOME window of g must overlap SOME window of h -- not their bounding hulls
+    isempty(intersect(g.covered, h.covered)) && return 0.0
     _ov(g.carriers, h.carriers)
 end
 
 "Fraction of the window two motifs share; 1 = identical, 0 = disjoint."
 function window_rho(g::RunMotif, h::RunMotif)
-    w = min(length(g.win), length(h.win)); w == 0 && return 0.0
-    length(intersect(g.win, h.win)) / w
+    w = min(length(g.covered), length(h.covered)); w == 0 && return 0.0
+    length(intersect(g.covered, h.covered)) / w
 end
 
 """
@@ -333,11 +364,14 @@ function dedup_motifs(ms::Vector{RunMotif}, supp::Vector{Float64};
             i = argmax(j -> supp[j], collect(left))
             members = [j for j in left if window_rho(ms[i], ms[j]) >= rho]
             nruns = length(unique(ms[j].run for j in members))
+            cov = Set{Int}(); for j in members, q in ms[j].covered; push!(cov, q); end
             nruns >= min_runs &&
                 push!(out[dir], (motif=ms[i], support=supp[i],
                                  members=length(members), runs=nruns,
-                                 region=minimum(minimum(ms[j].win) for j in members):
-                                        maximum(maximum(ms[j].win) for j in members)))
+                                 # the positions the members actually read; a
+                                 # multi-window motif is disjoint, so keep the set
+                                 covered=cov,
+                                 region=minimum(cov):maximum(cov)))
             setdiff!(left, members)
         end
     end
@@ -360,7 +394,7 @@ though it were the latter.
 function _consensus_note(f, n_runs::Int)
     string("<span class=\"consensus-note\">support ", round(f.support, digits=2),
            " &middot; found in ", f.runs, "/", n_runs, " runs",
-           " &middot; region ", first(f.region), ":", last(f.region),
+           " &middot; region ", _fmt_positions(f.covered),
            " &middot; shown from <code>", f.motif.run, "</code></span>")
 end
 
@@ -449,7 +483,7 @@ function consensus_top_movers(save_path::AbstractString;
         JSON3.write(io, Dict("rho"=>combiner.rho, "n"=>combiner.n,
             "min_runs"=>combiner.min_runs, "runs"=>[r.name for r in runs],
             "findings"=>[Dict("direction"=>d, "support"=>f.support, "members"=>f.members,
-                              "runs"=>f.runs, "region"=>[first(f.region), last(f.region)],
+                              "runs"=>f.runs, "region"=>[first(f.region), last(f.region)], "region_windows"=>_fmt_positions(f.covered),
                               "from"=>f.motif.run, "span"=>f.motif.entry.span)
                          for (d, fs) in (("positive", pos), ("negative", neg)) for f in fs]))
     end
@@ -471,9 +505,13 @@ back to the run, the logo file and the carrier list it came from.
 Columns, in order:
 
     protein_name label direction rank support n_runs n_motifs region_start
-    region_end from_run display_name group_label span is_singleton count
+    region_end region_windows from_run display_name group_label span is_singleton count
     shapley_median cluster_median cluster_nnd nnd_pvalue location_z wt_seq
     mut_positions description logo_path carriers_csv
+
+`region_start`/`region_end` bound the finding; `region_windows` lists the
+positions its motifs actually read, which for a multi-window motif is disjoint --
+`7:14, 41:48` rather than `7:48`.
 
 `logo_path` and `carriers_csv` are relative to the folder holding this file, so
 they resolve directly: `run_3/renderings_1/mutation_regions_1/12_15:22.png`.
@@ -484,7 +522,7 @@ function write_consensus_csv(path::AbstractString, positives, negatives;
     esc(x) = (t = string(x); occursin(r"[\",\n]", t) ? "\"" * replace(t, "\"" => "\"\"") * "\"" : t)
     open(path, "w") do io
         println(io, join(["protein_name","label","direction","rank","support","n_runs",
-            "n_motifs","region_start","region_end","from_run","display_name","group_label",
+            "n_motifs","region_start","region_end","region_windows","from_run","display_name","group_label",
             "span","is_singleton","count","shapley_median","cluster_median","cluster_nnd",
             "nnd_pvalue","location_z","wt_seq","mut_positions","description",
             "logo_path","carriers_csv"], ","))
@@ -498,7 +536,7 @@ function write_consensus_csv(path::AbstractString, positives, negatives;
                 println(io, join(esc.([
                     something(protein_name, ""), something(label, ""), dir, rank,
                     round(f.support, digits=4), f.runs, f.members,
-                    first(f.region), last(f.region), f.motif.run,
+                    first(f.region), last(f.region), _fmt_positions(f.covered), f.motif.run,
                     e.display_name, e.group_label, e.span, e.is_singleton, e.count,
                     e.median, e.cluster_median, e.cluster_nnd, e.nnd_p, e.location_z,
                     join((r.wt for r in e.wt_regions), ";"), join(mut, ";"),

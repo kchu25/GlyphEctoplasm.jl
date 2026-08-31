@@ -142,6 +142,21 @@ carriers_csv  run_3/renderings_1/mutation_regions_1/12_15:22.csv
 
 `support`, `n_runs` and `n_motifs` say how much corroboration the finding has.
 
+## Multi-region motifs
+
+A motif may span several disjoint filter windows — 45% do on real RNA data, up to
+seven. `RunMotif` keeps each window in `wins` and their union in `covered`, and
+both `motif_omega` and `window_rho` compare on `covered`.
+
+Do not reduce them to a bounding interval. Before v0.4.13 the windows `7:14` and
+`41:48` were stored as `7:48`, which claimed 42 positions for a motif that reads
+16 and let it absorb, as duplicates, every single-region motif sitting in the gap.
+Re-rendering 33 RNA datasets after the fix changed the selection on 11 of them and
+surfaced 9 findings the hulls had swallowed.
+
+`consensus_top_motifs.csv` reports both: `region_start`/`region_end` bound the
+finding, and `region_windows` lists what is actually read — `7:14, 41:48`.
+
 ## Requirements
 
 Each run folder needs `top_motifs.json`, written beside `top_motifs.csv` on every
