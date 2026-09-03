@@ -56,12 +56,17 @@ end
 
 Plain-language summary of what a mutation motif does, e.g.
 
-    Mutations at sites 66, 69, 72 to K, L, P respectively increase ddG_ML_float (kcal/mol).
+    Mutations at sites 66, 69, 72 to amino acids such as K, L, P respectively increase ddG_ML_float (kcal/mol).
 
 Sites are the arrowed (mutated) columns of `regions`, in ascending position
 order across every region — so a multi-region motif contributes all of its
 sites, not just the first region's. Each site's residue is the motif's observed
 consensus there (`WildTypeRegion.obs`), i.e. what the position mutates *to*.
+
+The noun is picked from the residues themselves by [`_residue_noun`](@ref) —
+"nucleotides" when they all lie in {A, C, G, T, U}, "amino acids" otherwise —
+and the substitution is phrased as "such as", because `obs` is the column's
+modal residue, one instance of what the site mutates to rather than the only one.
 
 Direction comes from the sign of `median` (the motif's Shapley median): positive
 reads "increase", negative "decrease". `label` is the feature/assay name shown
@@ -71,7 +76,8 @@ to "the measured value".
 Returns `""` when there is nothing to describe — no regions, no arrowed columns,
 or a zero/NaN median — so callers can treat empty as "omit the section".
 
-Grammar is singular for a lone site ("Mutation at site 66 to K increases …") and
+Grammar is singular for a lone site ("Mutation at site 66 to an amino acid such
+as K increases …") and
 drops the "respectively", which only makes sense for a list.
 
 !!! note "Where the residues come from"
@@ -113,15 +119,17 @@ function mutation_description(regions::AbstractVector{WildTypeRegion},
     # into the computation, so a run trained on log or z-scored labels still
     # reports influences on the original scale.
     mag = _format_magnitude(abs(float(median)))
+    noun_one, noun_many = _residue_noun(residues)
 
     if length(sites) == 1
-        return string("Mutation at site ", sites[1], " to ", residues[1], " ",
+        return string("Mutation at site ", sites[1], " to ", noun_one,
+                      " such as ", residues[1], " ",
                       verb_up ? "increases" : "decreases", " ", what,
                       " by about ", mag, ".")
     end
     # Positions collapse to ranges and the residues collapse the SAME way, so
     # the two lists stay token-for-token aligned:
-    #   "7-14, 36, 38-41 to GGUGUUGC, U, CGAC respectively"
+    #   "7-14, 36, 38-41 to nucleotides such as GGUGUUGC, U, CGAC respectively"
     runs = integer_runs(sites)
     pos_toks = _run_position_tokens(sites, runs)
     res_toks = _run_residue_tokens(residues, runs)
@@ -130,9 +138,26 @@ function mutation_description(regions::AbstractVector{WildTypeRegion},
     # CUCUCGUC"), where the word is noise.
     resp = length(pos_toks) > 1 ? " respectively " : " "
     return string("Mutations at sites ", join(pos_toks, ", "),
-                  " to ", join(res_toks, ", "),
+                  " to ", noun_many, " such as ", join(res_toks, ", "),
                   resp, verb_up ? "increase" : "decrease", " ", what,
                   " by about ", mag, ".")
+end
+
+"""
+    _residue_noun(residues) -> (singular_with_article, plural)
+
+The word for what a site mutates *to*, chosen from the observed residues
+themselves rather than from a flag: a motif whose residues all lie in the
+nucleotide alphabet {A, C, G, T, U} is nucleotide, anything else is protein.
+
+The alphabet is not carried on `WildTypeRegion`, so this is how
+[`mutation_description`](@ref) tells the two cases apart. The one case it gets
+wrong is a protein motif whose residues happen to be drawn exclusively from
+A/C/G/T/U — all five are valid amino-acid codes — which reads "nucleotides".
+"""
+function _residue_noun(residues::AbstractVector{Char})
+    all(c -> c in ('A', 'C', 'G', 'T', 'U'), residues) ?
+        ("a nucleotide", "nucleotides") : ("an amino acid", "amino acids")
 end
 
 """
@@ -517,7 +542,8 @@ and `negatives` are the vectors returned by [`select_top_movers`](@ref).
 `feature_label` is the assay/feature name (units included, e.g.
 `"ddG_ML_float (kcal/mol)"`). When given, each row's popup gains a plain-language
 interpretation line built by [`mutation_description`](@ref) — *"Mutations at
-sites 66, 69, 72 to K, L, P respectively increase ddG_ML_float (kcal/mol)."* The
+sites 66, 69, 72 to amino acids such as K, L, P respectively increase
+ddG_ML_float (kcal/mol)."* The
 sentence is omitted for motifs with no wild-type context, so the convolution case
 simply never shows it.
 """
@@ -635,7 +661,7 @@ type, `;`-joined) — enough to line up recurring positions across datasets.
 
 `description` carries the same plain-language sentence the card's popup shows
 (see [`mutation_description`](@ref)) — e.g. *"Mutations at sites 66, 69, 72 to
-K, L, P respectively increase ddG_ML_float (kcal/mol)."* — so the interpretation
+amino acids such as K, L, P respectively increase ddG_ML_float (kcal/mol)."* — so the interpretation
 travels with the table instead of living only in the rendered HTML. It is `""`
 for motifs with no wild-type context (the convolution case) and for any motif
 whose columns yield no confident residue call.
