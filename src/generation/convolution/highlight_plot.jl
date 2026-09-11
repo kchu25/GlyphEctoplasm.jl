@@ -52,6 +52,102 @@ end
 
 
 """
+    indicator_axis_labels(feature_label) -> (xlabel, ylabel)
+
+Axis labels for a prediction-vs-observed plot, derived from the dataset's
+feature name.
+
+`feature_label` is the assay's feature name as the dataset carries it, in the
+`"<quantity> (<unit>)"` form the loaders write. Both axes of an indicator plot
+hold the *same* physical quantity — the model's value on x, the assay's on y —
+so naming it once gives both.
+
+    "ddG_ML_float (kcal/mol)"            ->  "Predicted ΔΔG (kcal/mol)"  / "Measured ΔΔG (kcal/mol)"
+    "nscore (dimensionless)"             ->  "Predicted nscore"          / "Measured nscore"
+    "lnW (dimensionless (ln fitness))"   ->  "Predicted lnW (ln fitness)"/ "Measured lnW (ln fitness)"
+    nothing                              ->  "Predicted values"          / "Labels"
+
+`nothing` keeps the old generic pair, which is what datasets carrying no feature
+names (the RNA sets) still get.
+
+Note this is only meaningful when the run scaled its labels back to the original
+units (`trc.scale_back`, on by default). Under `scale_back=false` both axes are in
+normalised space and the unit would be a lie, so callers on that path should pass
+`nothing`.
+"""
+# The labels are data-driven now, so an assay whose name runs long
+# ("mean_medianBrightness_per_aaseq (a.u. (fluorescence))") overruns the figure at
+# the fixed 32 pt. Roughly 38 characters is what a label spans across the plot at
+# full size, in Makie here and in the matplotlib copies alike.
+#
+# Break before shrinking: the unit is the natural second line, and a two-line
+# label at full size reads better than a one-line label shrunk to fit. Only what
+# is still too long after the break is scaled down, floored at 16 pt.
+const _LABEL_FITS = 38
+
+function _wrap_axis_label(s::AbstractString; fits::Int=_LABEL_FITS)
+    length(s) <= fits && return String(s)
+    i = findlast(" (", s)
+    i === nothing && return String(s)
+    return String(s[1:first(i)-1]) * "\n" * String(s[first(i)+1:end])
+end
+
+function _axis_label_size(s::AbstractString; base::Int=32, fits::Int=_LABEL_FITS, floor_pt::Int=16)
+    longest = maximum(length, split(s, '\n'))
+    longest <= fits && return base
+    return clamp(floor(Int, base * fits / longest), floor_pt, base)
+end
+
+function indicator_axis_labels(feature_label)
+    (feature_label === nothing || isempty(strip(String(feature_label)))) &&
+        return ("Predicted values", "Labels")
+
+    s = strip(String(feature_label))
+    # Split at the FIRST paren and close at the LAST: real unit strings nest,
+    # e.g. "replicates_mean_brightness (a.u. (fluorescence))". A no-nesting
+    # pattern silently matches nothing there and swallows the unit into the
+    # quantity, which is how this got the label wrong the first time.
+    m = match(r"^(.*?)\s*\((.*)\)\s*$", s)
+    quantity, unit = m === nothing ? (s, "") : (strip(m.captures[1]), strip(m.captures[2]))
+    isempty(quantity) && return ("Predicted values", "Labels")
+
+    q = _pretty_quantity(quantity)
+    u = _pretty_unit(unit)
+    suffix = isempty(u) ? "" : " ($u)"
+    return ("Predicted $q$suffix", "Measured $q$suffix")
+end
+
+# Tidy a raw phenotype column name into something printable on an axis.
+# The upstream names are spreadsheet headers, not display strings, so they carry
+# pipeline noise (`_ML_float` = "the ML-fitted float column") and spell Greek
+# letters out in ASCII. Only those two classes are rewritten; anything else is
+# passed through with underscores opened up, so an unrecognised assay degrades to
+# a readable version of its own name rather than to a wrong guess.
+const _QUANTITY_NAMES = Dict("ddg" => "ΔΔG", "dg" => "ΔG")
+
+function _pretty_quantity(q::AbstractString)
+    stripped = replace(q, r"_(ML_)?float$"i => "")
+    got = get(_QUANTITY_NAMES, lowercase(stripped), nothing)
+    got === nothing || return got
+    return replace(stripped, '_' => ' ')
+end
+
+# "dimensionless" is the absence of a unit, so it is never printed: an axis with
+# no unit says so by carrying no parenthetical. When it qualifies something —
+# "dimensionless (ln fitness)" — the qualifier is the informative half and is
+# kept alone. Any other nesting is flattened, since one parenthetical inside
+# another reads badly on an axis.
+function _pretty_unit(u::AbstractString)
+    v = strip(u)
+    isempty(v) && return ""
+    lowercase(v) == "dimensionless" && return ""
+    inner = match(r"^dimensionless\s*\((.*)\)$"i, v)
+    inner === nothing || return strip(inner.captures[1])
+    return strip(replace(v, r"\s*\(([^()]*)\)" => s" \1"))
+end
+
+
+"""
     plot_labels_vs_procprod(pts, is_in_intersect; show_density=true, show_r2=false, motif_label="Contain motif")
 
 Plot predicted values vs. observed labels, highlighting which sequences contain a given motif.
@@ -122,6 +218,12 @@ avoid clutter — these mark the densest regions where motif-containing points c
   
 - `motif_label::String = "Contain motif"`: Legend label for the motif-containing group.
 
+- `feature_label::Union{String,Nothing} = nothing`: The dataset's feature name in
+  `"<quantity> (<unit>)"` form (e.g. `"ddG_ML_float (kcal/mol)"`). When given, the axes are
+  named for the quantity and its unit instead of the generic "Predicted values"/"Labels";
+  see `indicator_axis_labels`. Pass `nothing` when the run did not scale labels back to
+  their original units, or when the dataset carries no feature names.
+
 - `alpha_power::Float64 = 1.01`: Controls density-based opacity scaling for motif points.
   Points are binned on a 50×50 2D grid; each point's alpha is proportional to its bin count
   raised to `alpha_power`. Values > 1 create stronger contrast (sparse → dim, dense → bright).
@@ -140,13 +242,17 @@ fig = plot_labels_vs_procprod(pts, is_motif;
 save("motif_enrichment.png", fig)
 ```
 """
-function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_r2=false, motif_label="Contain motif", alpha_power=1.01, bg_max_points=nothing)
+function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_r2=false, motif_label="Contain motif", alpha_power=1.01, bg_max_points=nothing, feature_label=nothing)
+    xlab, ylab = _wrap_axis_label.(indicator_axis_labels(feature_label))
+    # One size for both, so a long x-label does not leave the axes visually
+    # mismatched — the two strings differ only by "Predicted"/"Measured".
+    lab_pt = min(_axis_label_size(xlab), _axis_label_size(ylab))
     fig = Figure(size=(800, 800))
     ax = Axis(fig[1, 1], 
-        xlabel="Predicted values", 
-        ylabel="Labels", 
-        xlabelsize=32,
-        ylabelsize=32,
+        xlabel=xlab, 
+        ylabel=ylab, 
+        xlabelsize=lab_pt,
+        ylabelsize=lab_pt,
         xticklabelsize=28,
         yticklabelsize=28,
         topspinevisible=false,

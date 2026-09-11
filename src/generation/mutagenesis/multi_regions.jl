@@ -457,7 +457,7 @@ function motif_filename_and_display(meta)
 end
 
 """
-    save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k) -> nnd_result
+    save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k, feature_label) -> nnd_result
 
 Save the per-motif indicator plot (yy-KDE) and run the cluster-tightness (NND)
 permutation test, returning its result. The plot is written under the filename
@@ -465,14 +465,20 @@ convention the singleton modal derives from the card image
 (`<dir>/yy_kde_intersect_<file_name>.png`). May throw; callers wrap this so a
 failure (e.g. `pts` not aligned to `all_indices`) only skips this one plot.
 
+`feature_label` is the dataset's feature name (`"<quantity> (<unit>)"`), passed
+straight through so the plot's axes can be named for the assay instead of the
+generic "Predicted values"/"Labels". `nothing` keeps the generic pair.
+
 This is the single point where the mutagenesis path computes a per-motif NND
 p-value — for single-region motifs and multi-region ones alike — so it is also
 where the companion location z-score is computed. Both come back on the same
 NamedTuple: `(k, obs_mNND, p_value, cluster_median, location_z)`.
 """
-function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k, bg_max_points=nothing)
+function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k, bg_max_points=nothing,
+        feature_label=nothing)
     is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
-    kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif", bg_max_points=bg_max_points)
+    kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif",
+        bg_max_points=bg_max_points, feature_label=feature_label)
     save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"), kde_fig, px_per_unit=1)
     carriers = findall(is_in_intersect)
     nnd = nnd_permutation_test_1d(carriers, pts.labels; k=nnd_k)
@@ -932,7 +938,8 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
     if pts !== nothing && all_indices !== nothing
         try
             nnd_result = save_indicator_and_nnd(meta, paths, file_name;
-                pts=pts, all_indices=all_indices, nnd_k=nnd_k, bg_max_points=bg_max_points)
+                pts=pts, all_indices=all_indices, nnd_k=nnd_k, bg_max_points=bg_max_points,
+                feature_label=feature_label)
         catch e_ind
             diag.n_indicator_failed += 1
             diag.first_indicator_error === nothing && (diag.first_indicator_error = e_ind)
