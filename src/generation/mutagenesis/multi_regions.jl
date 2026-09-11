@@ -130,6 +130,43 @@ function build_mutation_aggregates(df_mutated, config::MutationRegionConfig, mot
 end
 
 """
+Smallest share of a column's sequences that must differ from the wild type before
+the reduced view keeps that column.
+
+EntroPlots' own rule is "keep if ANY sequence differs" — its tolerance defaults to
+`1e-9` and the counts are integers, so a single stray sequence in a thousand holds
+a column open. Those columns then dominate the figure, because letter height is
+information content and a 99.9%-wild-type column is *more* homogeneous, hence
+taller, than the genuine substitution beside it. Measured on this corpus: across
+the consensus findings, 19% of kept columns sat below 1% mutant and 13% were held
+open by exactly one sequence.
+
+At 0.02 this greys out about 30% of the columns in the consensus findings and
+touches about half of them, while leaving anything with a visible red fraction
+alone. No motif loses every column at this threshold.
+"""
+const MIN_MUTANT_FRACTION = 0.02
+
+"""
+    reduction_tolerance(count_matrices; frac=MIN_MUTANT_FRACTION) -> Float64
+
+`MIN_MUTANT_FRACTION` expressed as the absolute count EntroPlots compares against,
+since its `tol` is a number of sequences rather than a share of them.
+
+Every column of a logo is built from the same carrier set, so one scalar states the
+rule exactly for all of them — checked across all 2887 motifs in the corpus, none
+has columns with differing carrier counts. Falls back to EntroPlots' own default
+when the matrices are empty or degenerate, which keeps the old behaviour rather
+than filtering on a number derived from nothing.
+"""
+function reduction_tolerance(count_matrices; frac::Real=MIN_MUTANT_FRACTION)
+    isempty(count_matrices) && return 1e-9
+    n = sum(view(count_matrices[1], :, 1))
+    (isfinite(n) && n > 0) || return 1e-9
+    return frac * n
+end
+
+"""
     compute_fragment_info(count_mats, ref_pfms, start_positions, reduction_on_ref, motif_size)
 
 Compute fragment count and span for a single motif key.
@@ -144,7 +181,8 @@ function compute_fragment_info(count_mats, ref_pfms, start_positions, reduction_
     if reduction_on_ref
         # Use EntroPlots to compute fragments and span with reference filtering
         # This can reduce the fragment count (e.g., triplets → 2 regions if one is filtered out)
-        fragment_count, span_str = EntroPlots.count_fragments(count_mats, ref_pfms, start_positions)
+        fragment_count, span_str = EntroPlots.count_fragments(count_mats, ref_pfms, start_positions;
+            tol=reduction_tolerance(count_mats))
         # Convert dashes to colons for consistency: "36-37, 39-45" → "36:37, 39:45"
         span_str = replace(span_str, "-" => ":")
     else
@@ -914,7 +952,8 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         xrotation=35,
         protein=size(meta.count_matrices[1], 1) == 20,
         uniform_color=true,
-        filter_by_reference=meta.reduction_on_ref
+        filter_by_reference=meta.reduction_on_ref,
+        filter_tolerance=reduction_tolerance(meta.count_matrices)
     )
 
     # The top-movers page shows BOTH logo views side by side: the reduced view
@@ -934,7 +973,8 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         xrotation=35,
         protein=size(meta.count_matrices[1], 1) == 20,
         uniform_color=true,
-        filter_by_reference=!meta.reduction_on_ref
+        filter_by_reference=!meta.reduction_on_ref,
+        filter_tolerance=reduction_tolerance(meta.count_matrices)
     )
     img_reduced = meta.reduction_on_ref ? paths.png.rel : alt_png_rel
     img_region  = meta.reduction_on_ref ? alt_png_rel : paths.png.rel
