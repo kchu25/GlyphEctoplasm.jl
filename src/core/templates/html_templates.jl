@@ -948,8 +948,13 @@ html_template_top_movers = mt"""<!DOCTYPE html>
                 <div class="singleton-modal-right">
                     <div class="singleton-modal-kde-container">
                         <span class="singleton-modal-kde-label">Indicator Plot</span>
-                        <button type="button" id="kdeScaleToggle" class="kde-scale-toggle"
-                                onclick="toggleKdeScale()" hidden>Log scale</button>
+                        <div id="kdeScaleSwitch" class="kde-scale-switch" role="group"
+                             aria-label="Indicator plot scale" hidden>
+                            <button type="button" class="kde-scale-opt is-on"
+                                    onclick="setKdeScale(false)" aria-pressed="true">Linear</button>
+                            <button type="button" class="kde-scale-opt"
+                                    onclick="setKdeScale(true)" aria-pressed="false">Log</button>
+                        </div>
                         <img id="singletonModalKde" src="" alt="KDE Plot">
                     </div>
                     <div class="singleton-modal-img-container">
@@ -1025,20 +1030,29 @@ html_template_top_movers = mt"""<!DOCTYPE html>
                 : base;
         }
 
+        // Two labelled options rather than one button whose caption flips. A single
+        // toggle reading "Log scale" is ambiguous -- it could equally mean "you are
+        // looking at the log scale" or "press for the log scale" -- and the reader
+        // has no way to tell which axis they are on without checking the numbers.
+        // Here the lit segment always names the scale currently drawn.
         function syncKdeToggle() {
-            const btn = document.getElementById('kdeScaleToggle');
-            if (!btn) return;
-            btn.hidden = !LOG_VIEW;
-            btn.textContent = kdeLogOn ? 'Linear scale' : 'Log scale';
-            btn.classList.toggle('is-on', kdeLogOn);
-            btn.setAttribute('aria-pressed', kdeLogOn ? 'true' : 'false');
+            const sw = document.getElementById('kdeScaleSwitch');
+            if (!sw) return;
+            sw.hidden = !LOG_VIEW;
+            const opts = sw.querySelectorAll('.kde-scale-opt');
+            opts.forEach(function (o, i) {
+                const on = (i === 1) === kdeLogOn;
+                o.classList.toggle('is-on', on);
+                o.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
         }
 
         // The choice persists as you move between cards. Flipping to log to read
         // one motif and having it snap back on the next card would make comparing
         // two motifs on the same scale impossible.
-        function toggleKdeScale() {
-            kdeLogOn = !kdeLogOn;
+        function setKdeScale(useLog) {
+            if (kdeLogOn === useLog) return;
+            kdeLogOn = useLog;
             syncKdeToggle();
             const img = document.getElementById('singletonModalKde');
             if (img) img.src = kdeSrcFor(img.dataset.base || '');

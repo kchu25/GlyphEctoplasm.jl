@@ -1042,16 +1042,26 @@ span.putBar {
     background-color: rgba(15, 23, 42, 0.06);
 }
 
+/* Grid rather than a flex row so the logo can have a row of its own spanning
+   both columns. A logo is a wide, short image (up to 900x330) and was being drawn
+   at 229x84 inside a half-width column -- 25% of its own resolution, which is why
+   the position indices under it were illegible. Nothing about the images changed;
+   they were simply being given a box a fifth of their size.
+
+   `align-items: stretch` lets the left column fill the row, which the Shapley card
+   then absorbs (see below) so the two columns finish level. */
 .singleton-modal-body {
     padding: 44px 36px 32px 36px;
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
     gap: 28px;
 }
 
 .singleton-modal-left {
-    flex: 1;
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1059,12 +1069,20 @@ span.putBar {
     padding: 0;
 }
 
+/* Takes up whatever height the left column has spare, so the column ends level
+   with the indicator instead of leaving a band of background under the
+   interpretation box. Capping the indicator to match instead would put it back to
+   its old 290px, which is the whole thing we were trying to fix. The plot is a
+   short wide strip, so a taller card with it centred reads as padding. */
 .singleton-modal-influence-container {
     width: 100%;
     box-sizing: border-box;
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     background-color: #ffffff;
     padding: 14px 16px;
@@ -1088,16 +1106,16 @@ span.putBar {
     text-align: center;
 }
 
+/* `display: contents` promotes the indicator, the logo and the title to grid
+   items of the modal body, so the logo can span both columns without the HTML
+   moving. The three `order` values below become `grid-row` values. */
 .singleton-modal-right {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
+    display: contents;
 }
 
 .singleton-modal-right h3 {
+    grid-column: 1 / -1;
+    grid-row: 3;
     margin: 0;
     color: #0f172a;
     font-size: 15px;
@@ -1105,28 +1123,39 @@ span.putBar {
     letter-spacing: 0.02em;
     text-align: center;
     padding-top: 0;
-    order: 2;
 }
 
+/* Sizes to its own content, never to a fixed height: the log-scale toggle is a
+   third child of this column and only present for right-skewed assays, so a fixed
+   height overflows the card in one of the two cases -- at 320px with the button
+   the label escapes above the card and the plot spills out the bottom. */
 .singleton-modal-kde-container {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
     width: 100%;
-    max-width: 360px;
-    height: 320px;
+    max-width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: 470px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 10px;
     background-color: #ffffff;
     padding: 14px 16px;
     border: 1px solid rgba(15, 23, 42, 0.07);
     border-radius: 12px;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    order: 0;
 }
 
+/* `flex: 1 1 auto` with `min-height: 0` lets the plot absorb the toggle's height
+   rather than the card growing to fit both. */
 .singleton-modal-kde-container img {
+    flex: 1 1 auto;
+    min-height: 0;
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
@@ -1142,46 +1171,62 @@ span.putBar {
     margin-bottom: 6px;
 }
 
-/* Log-scale toggle on the indicator panel. Present only for right-skewed assays,
-   so it has to read as an available control rather than as a permanent label:
-   quiet when off, clearly engaged when on. */
-.kde-scale-toggle {
-    display: block;
-    margin: 0 auto 8px;
-    padding: 3px 12px;
+/* Scale switch on the indicator panel, shown only for right-skewed assays.
+   A segmented control rather than a single toggle: the lit segment names the
+   scale currently drawn, so the reader can tell which axis they are looking at
+   without reading the tick values. Sized to sit quietly under the panel label --
+   it is a view control, not a call to action. */
+.kde-scale-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    margin: 0 auto 4px;
+    background: #eef2f7;
+    border: 1px solid rgba(15, 23, 42, 0.07);
+    border-radius: 999px;
+}
+
+.kde-scale-opt {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 3px 13px;
     font: 600 10px/1.6 inherit;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #64748b;
-    background: #f8fafc;
-    border: 1px solid #cbd5e1;
+    color: #94a3b8;
     border-radius: 999px;
     cursor: pointer;
-    transition: background .12s ease, color .12s ease, border-color .12s ease;
+    transition: background .15s ease, color .15s ease, box-shadow .15s ease;
 }
 
-.kde-scale-toggle:hover {
-    color: #334155;
-    background: #eef2f7;
-    border-color: #94a3b8;
-}
+.kde-scale-opt:hover:not(.is-on) { color: #475569; }
 
-.kde-scale-toggle:focus-visible {
+.kde-scale-opt:focus-visible {
     outline: 2px solid #2563eb;
-    outline-offset: 2px;
+    outline-offset: 1px;
 }
 
-.kde-scale-toggle.is-on {
-    color: #fff;
-    background: #475569;
-    border-color: #475569;
+/* The selected segment lifts out of the track rather than darkening, which keeps
+   the control legible against the white panel behind it. */
+.kde-scale-opt.is-on {
+    color: #0f172a;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
+/* Its own row across both columns. The logo is the widest thing in the popup and
+   the only one that was being downscaled. */
 .singleton-modal-img-container {
+    grid-column: 1 / -1;
+    grid-row: 2;
     width: 100%;
-    max-width: 360px;
-    height: 105px;
+    max-width: 100%;
+    height: auto;
+    min-height: 0;
     padding: 14px 16px;
+    box-sizing: border-box;
     border-radius: 12px;
     display: flex;
     justify-content: center;
@@ -1189,12 +1234,16 @@ span.putBar {
     background-color: #ffffff;
     border: 1px solid rgba(15, 23, 42, 0.07);
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    order: 1;
 }
 
+/* `width: auto` so each logo draws at its OWN native width rather than being
+   stretched to the row. They range from 484 to 900 px wide, so forcing them all to
+   the full row would upscale the narrow ones and make them soft. */
 .singleton-modal-img-container img {
-    max-width: 80%;
-    max-height: 80%;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
     object-fit: contain;
     border-radius: 4px;
 }
