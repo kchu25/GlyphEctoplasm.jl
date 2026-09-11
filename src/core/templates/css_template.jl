@@ -1142,6 +1142,41 @@ span.putBar {
     margin-bottom: 6px;
 }
 
+/* Log-scale toggle on the indicator panel. Present only for right-skewed assays,
+   so it has to read as an available control rather than as a permanent label:
+   quiet when off, clearly engaged when on. */
+.kde-scale-toggle {
+    display: block;
+    margin: 0 auto 8px;
+    padding: 3px 12px;
+    font: 600 10px/1.6 inherit;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #64748b;
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.kde-scale-toggle:hover {
+    color: #334155;
+    background: #eef2f7;
+    border-color: #94a3b8;
+}
+
+.kde-scale-toggle:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+}
+
+.kde-scale-toggle.is-on {
+    color: #fff;
+    background: #475569;
+    border-color: #475569;
+}
+
 .singleton-modal-img-container {
     width: 100%;
     max-width: 360px;

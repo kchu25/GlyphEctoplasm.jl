@@ -20,6 +20,10 @@ function plot_motifs_mut_case(data, m,
         top_movers_csv=nothing,        # path to also dump the top movers as CSV (nothing = skip)
         top_movers_csv_append=false,   # append instead of truncating (multi-output runs share one file)
         top_movers_label=nothing,      # output/feature label stamped on every CSV row
+        log_view=false,                # offer the log-scale indicator toggle in the popup.
+                                       # MotifInference sets this for right-skewed assays whose
+                                       # units are not already logarithmic; it writes a second
+                                       # PNG per motif and turns the button on.
         transform_note="",             # sentence describing how the labels were transformed
                                        # (MotifInference sets this when it chooses the
                                        # normalization automatically). "" => nothing is shown,
@@ -127,7 +131,8 @@ function plot_motifs_mut_case(data, m,
         bg_max_points = bg_max_points,     # Optional cap on indicator-plot background points (nothing = off)
         report_location_z = report_location_z,  # Show the location z-score beside the NND p-value
         show_region_interaction = show_region_interaction,  # Print the interaction line? (computed either way)
-        feature_label = top_movers_label   # Assay name (+units) for each popup's interpretation line
+        feature_label = top_movers_label,  # Assay name (+units) for each popup's interpretation line
+        log_view = log_view                # Also write the log-scale indicator twin per motif
     )
 
     render_and_save_outputs!(json_motifs, html_dict, 1;
@@ -186,6 +191,7 @@ function plot_motifs_mut_case(data, m,
         wild_type=wild_type, feature_label=top_movers_label,
         generalization_warning=generalization_warning,
         transform_note=summary_note,
+        log_view=log_view,                       # show the popup's log-scale toggle
         show_epistasis=show_region_interaction   # hides the metadata column's interaction line
     )
 

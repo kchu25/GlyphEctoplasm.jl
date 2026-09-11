@@ -562,6 +562,7 @@ function render_top_movers_page!(save_path::AbstractString;
         transform_note::AbstractString="",  # rendered at the BOTTOM of the page; only used
                                             # when there is no generalization page to carry it
         runs_nav::AbstractString="",        # consensus page: links to the individual runs
+        log_view::Bool=false,               # offer the log-scale indicator toggle in the popup
         nav_override::AbstractString="null",# JS array of [href,label]; "null" = numbered nav
         consensus_rows::Union{Nothing,AbstractVector}=nothing,
                                             # one provenance line per row, positives then
@@ -626,6 +627,7 @@ function render_top_movers_page!(save_path::AbstractString;
         transform_note=transform_note,
         runs_nav=runs_nav,
         nav_override=nav_override,
+        log_view=log_view ? "true" : "false",
         extra_head=extra_head,
         upto=nav_page_count,
         top_mover_data=data_js,

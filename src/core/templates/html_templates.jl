@@ -948,6 +948,8 @@ html_template_top_movers = mt"""<!DOCTYPE html>
                 <div class="singleton-modal-right">
                     <div class="singleton-modal-kde-container">
                         <span class="singleton-modal-kde-label">Indicator Plot</span>
+                        <button type="button" id="kdeScaleToggle" class="kde-scale-toggle"
+                                onclick="toggleKdeScale()" hidden>Log scale</button>
                         <img id="singletonModalKde" src="" alt="KDE Plot">
                     </div>
                     <div class="singleton-modal-img-container">
@@ -1007,6 +1009,41 @@ html_template_top_movers = mt"""<!DOCTYPE html>
 
     // Navigation: "Top movers" (this page) first, then the numbered pages.
     (function () {
+        // Whether this assay got log-scale indicator twins written for it. Set from
+        // the same flag that decided whether to render them, so the button can
+        // never point at a file that does not exist.
+        const LOG_VIEW = {{{:log_view}}};
+        let kdeLogOn = false;
+
+        // The twin sits beside the linear plot under a parallel name, so the path
+        // is derived rather than carried per-motif: one flag for the page, not a
+        // second field on every card that could drift out of step with the files.
+        function kdeSrcFor(base) {
+            if (!base) return '';
+            return (LOG_VIEW && kdeLogOn)
+                ? base.replace('yy_kde_intersect_', 'yy_kde_log_intersect_')
+                : base;
+        }
+
+        function syncKdeToggle() {
+            const btn = document.getElementById('kdeScaleToggle');
+            if (!btn) return;
+            btn.hidden = !LOG_VIEW;
+            btn.textContent = kdeLogOn ? 'Linear scale' : 'Log scale';
+            btn.classList.toggle('is-on', kdeLogOn);
+            btn.setAttribute('aria-pressed', kdeLogOn ? 'true' : 'false');
+        }
+
+        // The choice persists as you move between cards. Flipping to log to read
+        // one motif and having it snap back on the next card would make comparing
+        // two motifs on the same scale impossible.
+        function toggleKdeScale() {
+            kdeLogOn = !kdeLogOn;
+            syncKdeToggle();
+            const img = document.getElementById('singletonModalKde');
+            if (img) img.src = kdeSrcFor(img.dataset.base || '');
+        }
+
         const upto = {{:upto}};
         const labels = {1: 'Motifs', 2: 'Generalization', 3: 'Statistics', 4: 'Readme'};
         // A consensus page has only two destinations, so it passes an explicit
@@ -1048,7 +1085,10 @@ html_template_top_movers = mt"""<!DOCTYPE html>
         document.getElementById('singletonModalImg').src = mainImg;
         document.getElementById('singletonModalImg').alt = d.title;
         document.getElementById('singletonModalInfluence').src = d.influence;
-        document.getElementById('singletonModalKde').src = d.yy_kde || '';
+        const kdeImg = document.getElementById('singletonModalKde');
+        kdeImg.dataset.base = d.yy_kde || '';
+        kdeImg.src = kdeSrcFor(kdeImg.dataset.base);
+        syncKdeToggle();
         document.getElementById('singletonModalTitle').innerHTML = d.title;
         for (let t = 1; t <= 6; t++) {
             document.getElementById('singletonModalText' + t).innerHTML =

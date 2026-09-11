@@ -98,9 +98,55 @@ function _axis_label_size(s::AbstractString; base::Int=32, fits::Int=_LABEL_FITS
     return clamp(floor(Int, base * fits / longest), floor_pt, base)
 end
 
-function indicator_axis_labels(feature_label)
+"""
+    log_shift(vals...) -> Float64
+
+How much to add before taking a log, so that every value is strictly positive.
+
+Returns `0.0` when the data is already positive, which is the common case. When
+something is zero or negative, the shift is `-minimum + pad`, where `pad` is
+`floor_decades` decades below the data's own span. The minimum then lands that
+many decades below the top of the plot instead of at `log10(0) = -Inf`.
+
+`pad` has to scale with the data, not with the data's smallest positive value. On
+Roberts_2023_hp the smallest positive label is 1.5e-8 while the shift is 0.25, so
+padding by the former puts the floor eight decades below everything else and one
+point drags the whole axis. Three decades is a readable range for a plot this
+size and keeps the floor visible as a clump rather than as an outlier.
+
+A shift is monotone, so the ordering of points — which is what an indicator plot
+is read for — survives it exactly. What it costs is dynamic range: when
+`|minimum|` is close to the data's own scale, adding it compresses the decades
+the log was meant to open up, and no choice of `pad` recovers them.
+`plot_labels_vs_procprod` annotates the figure with the shift it used so that
+cost is visible rather than silent.
+"""
+function log_shift(vals...; floor_decades::Real=3)
+    lo = minimum(minimum, vals)
+    lo > 0 && return 0.0
+    hi = maximum(maximum, vals)
+    span = hi - lo
+    span > 0 || return -lo + eps()      # degenerate: every value identical
+    return -lo + span * 10.0^(-floor_decades)
+end
+
+"""
+    to_log_space(x, y) -> (lx, ly, shift)
+
+Both axes of an indicator plot on a common log scale.
+
+The same `shift` goes on both, because the two axes hold the same quantity and
+the plot forces shared limits — shifting them apart would tilt the diagonal.
+"""
+function to_log_space(x, y)
+    shift = log_shift(x, y)
+    return (log10.(x .+ shift), log10.(y .+ shift), shift)
+end
+
+function indicator_axis_labels(feature_label; log_scale::Bool=false)
+    pre = log_scale ? "log\u2081\u2080 " : ""
     (feature_label === nothing || isempty(strip(String(feature_label)))) &&
-        return ("Predicted values", "Labels")
+        return (pre * "Predicted values", pre * (log_scale ? "Labels" : "Labels"))
 
     s = strip(String(feature_label))
     # Split at the FIRST paren and close at the LAST: real unit strings nest,
@@ -109,12 +155,12 @@ function indicator_axis_labels(feature_label)
     # quantity, which is how this got the label wrong the first time.
     m = match(r"^(.*?)\s*\((.*)\)\s*$", s)
     quantity, unit = m === nothing ? (s, "") : (strip(m.captures[1]), strip(m.captures[2]))
-    isempty(quantity) && return ("Predicted values", "Labels")
+    isempty(quantity) && return (pre * "Predicted values", pre * "Labels")
 
     q = _pretty_quantity(quantity)
     u = _pretty_unit(unit)
     suffix = isempty(u) ? "" : " ($u)"
-    return ("Predicted $q$suffix", "Measured $q$suffix")
+    return (pre * "Predicted $q$suffix", pre * "Measured $q$suffix")
 end
 
 # Tidy a raw phenotype column name into something printable on an axis.
@@ -242,8 +288,18 @@ fig = plot_labels_vs_procprod(pts, is_motif;
 save("motif_enrichment.png", fig)
 ```
 """
-function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_r2=false, motif_label="Contain motif", alpha_power=1.01, bg_max_points=nothing, feature_label=nothing)
-    xlab, ylab = _wrap_axis_label.(indicator_axis_labels(feature_label))
+function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_r2=false, motif_label="Contain motif", alpha_power=1.01, bg_max_points=nothing, feature_label=nothing, log_scale=false)
+    # Transform up front rather than setting an axis scale, so everything
+    # downstream — the KDE, the density-scaled alpha, the shared tick range —
+    # is computed in the space actually being displayed. An axis scale would
+    # leave the density estimated on the raw coordinates and shade the plot
+    # against what the reader sees.
+    log_shift_used = 0.0
+    if log_scale
+        lx, ly, log_shift_used = to_log_space(pts.proc_prod, pts.labels)
+        pts = (; proc_prod = lx, labels = ly)
+    end
+    xlab, ylab = _wrap_axis_label.(indicator_axis_labels(feature_label; log_scale=log_scale))
     # One size for both, so a long x-label does not leave the axes visually
     # mismatched — the two strings differ only by "Predicted"/"Measured".
     lab_pt = min(_axis_label_size(xlab), _axis_label_size(ylab))
@@ -394,6 +450,15 @@ function plot_labels_vs_procprod(pts, is_in_intersect; show_density=false, show_
         
         text!(ax, 0.98, 0.02, text=@sprintf("R² = %.3f", r2), 
             align=(:right, :bottom), fontsize=22, color=:black,
+            space=:relative)
+    end
+
+    # A shift changes what the axis numbers mean, so it is stated on the figure
+    # rather than left for the reader to infer from a suspiciously round floor.
+    if log_shift_used > 0
+        text!(ax, 0.98, 0.02,
+            text=@sprintf("shifted +%.3g before log", log_shift_used),
+            align=(:right, :bottom), fontsize=20, color=RGBA(0.35, 0.35, 0.35, 1.0),
             space=:relative)
     end
 

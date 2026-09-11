@@ -429,7 +429,8 @@ function consensus_top_movers(save_path::AbstractString;
         protein_name = nothing,
         protein_length = nothing,
         wild_type = nothing,
-        feature_label = nothing)
+        feature_label = nothing,
+        log_view::Bool = false)
 
     runs = discover_runs(save_path)
     length(runs) < 2 && throw(ArgumentError(
@@ -468,6 +469,7 @@ function consensus_top_movers(save_path::AbstractString;
         page_title = page_title, nav_page_count = 1,
         protein_name = protein_name, protein_length = protein_length,
         wild_type = wild_type, feature_label = feature_label,
+        log_view = log_view,
         show_epistasis = false, modal_scroll_fix = true,
         consensus_rows = [note(f) for f in vcat(pos, neg)],
         runs_nav = _runs_nav(runs),

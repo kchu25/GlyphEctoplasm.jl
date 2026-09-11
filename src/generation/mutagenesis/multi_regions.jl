@@ -475,11 +475,20 @@ where the companion location z-score is computed. Both come back on the same
 NamedTuple: `(k, obs_mNND, p_value, cluster_median, location_z)`.
 """
 function save_indicator_and_nnd(meta, paths, file_name; pts, all_indices, nnd_k, bg_max_points=nothing,
-        feature_label=nothing)
+        feature_label=nothing, log_view::Bool=false)
     is_in_intersect = all_indices .∈ Ref(Set(intersect(meta.gdf_row.data_pt_index, all_indices)))
+    dir = dirname(paths.png.abs)
     kde_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif",
         bg_max_points=bg_max_points, feature_label=feature_label)
-    save(joinpath(dirname(paths.png.abs), "yy_kde_intersect_$(file_name).png"), kde_fig, px_per_unit=1)
+    save(joinpath(dir, "yy_kde_intersect_$(file_name).png"), kde_fig, px_per_unit=1)
+    # Log twin, written only for the skewed assays the caller flagged. The popup
+    # offers its toggle exactly when this file exists, so writing it is what
+    # turns the button on — there is no second switch to keep in step.
+    if log_view
+        log_fig = plot_labels_vs_procprod(pts, is_in_intersect; motif_label="Contain motif",
+            bg_max_points=bg_max_points, feature_label=feature_label, log_scale=true)
+        save(joinpath(dir, "yy_kde_log_intersect_$(file_name).png"), log_fig, px_per_unit=1)
+    end
     carriers = findall(is_in_intersect)
     nnd = nnd_permutation_test_1d(carriers, pts.labels; k=nnd_k)
     # Cluster median: where the motif's sequences sit on the expression axis
@@ -894,7 +903,8 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         interaction_summaries = nothing, top_movers_out = nothing, bg_max_points = nothing,
         report_location_z::Bool = false,
         show_region_interaction::Bool = false,   # display the region-interaction line? computed either way
-        feature_label = nothing)
+        feature_label = nothing,
+        log_view::Bool = false)                  # also write the log-scale indicator twin
     EntroPlots.save_logo_with_rect_gaps(
         meta.count_matrices, meta.positions, meta.total_length,
         paths.png.abs;
@@ -939,7 +949,7 @@ function render_one_motif!(json_motifs, html_dict, meta, paths, file_name, displ
         try
             nnd_result = save_indicator_and_nnd(meta, paths, file_name;
                 pts=pts, all_indices=all_indices, nnd_k=nnd_k, bg_max_points=bg_max_points,
-                feature_label=feature_label)
+                feature_label=feature_label, log_view=log_view)
         catch e_ind
             diag.n_indicator_failed += 1
             diag.first_indicator_error === nothing && (diag.first_indicator_error = e_ind)
@@ -1054,7 +1064,8 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
         gc_every::Int = 25, bg_max_points = nothing,
         report_location_z::Bool = false,  # also show the location z-score on each card
         show_region_interaction::Bool = false,  # display the region-interaction line? computed either way
-        feature_label = nothing)   # assay name (+units) for the interpretation sentence
+        feature_label = nothing,   # assay name (+units) for the interpretation sentence
+        log_view::Bool = false)    # write log-scale indicator twins (skewed assays only)
 
     # Flatten if needed (handles both single vector and vector of vectors)
     # Check if first element is a vector (indicates nested structure)
@@ -1094,7 +1105,7 @@ function register_mutation_region_motifs!(json_motifs, html_dict, motif_metadata
                 interaction_summaries=interaction_summaries, top_movers_out=top_movers_out,
                 bg_max_points=bg_max_points, report_location_z=report_location_z,
                 show_region_interaction=show_region_interaction,
-                feature_label=feature_label
+                feature_label=feature_label, log_view=log_view
             )
             push!(registered_names, display_name)  # Track registration
             current_idx += 1
