@@ -1012,52 +1012,52 @@ html_template_top_movers = mt"""<!DOCTYPE html>
     <script>
     {{{:top_mover_data}}}
 
+    // Whether this assay got log-scale indicator twins written for it. Set from
+    // the same flag that decided whether to render them, so the button can
+    // never point at a file that does not exist.
+    const LOG_VIEW = {{{:log_view}}};
+    let kdeLogOn = false;
+
+    // The twin sits beside the linear plot under a parallel name, so the path
+    // is derived rather than carried per-motif: one flag for the page, not a
+    // second field on every card that could drift out of step with the files.
+    function kdeSrcFor(base) {
+        if (!base) return '';
+        return (LOG_VIEW && kdeLogOn)
+            ? base.replace('yy_kde_intersect_', 'yy_kde_log_intersect_')
+            : base;
+    }
+
+    // Two labelled options rather than one button whose caption flips. A single
+    // toggle reading "Log scale" is ambiguous -- it could equally mean "you are
+    // looking at the log scale" or "press for the log scale" -- and the reader
+    // has no way to tell which axis they are on without checking the numbers.
+    // Here the lit segment always names the scale currently drawn.
+    function syncKdeToggle() {
+        const sw = document.getElementById('kdeScaleSwitch');
+        if (!sw) return;
+        sw.hidden = !LOG_VIEW;
+        const opts = sw.querySelectorAll('.kde-scale-opt');
+        opts.forEach(function (o, i) {
+            const on = (i === 1) === kdeLogOn;
+            o.classList.toggle('is-on', on);
+            o.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+
+    // The choice persists as you move between cards. Flipping to log to read
+    // one motif and having it snap back on the next card would make comparing
+    // two motifs on the same scale impossible.
+    function setKdeScale(useLog) {
+        if (kdeLogOn === useLog) return;
+        kdeLogOn = useLog;
+        syncKdeToggle();
+        const img = document.getElementById('singletonModalKde');
+        if (img) img.src = kdeSrcFor(img.dataset.base || '');
+    }
+
     // Navigation: "Top movers" (this page) first, then the numbered pages.
     (function () {
-        // Whether this assay got log-scale indicator twins written for it. Set from
-        // the same flag that decided whether to render them, so the button can
-        // never point at a file that does not exist.
-        const LOG_VIEW = {{{:log_view}}};
-        let kdeLogOn = false;
-
-        // The twin sits beside the linear plot under a parallel name, so the path
-        // is derived rather than carried per-motif: one flag for the page, not a
-        // second field on every card that could drift out of step with the files.
-        function kdeSrcFor(base) {
-            if (!base) return '';
-            return (LOG_VIEW && kdeLogOn)
-                ? base.replace('yy_kde_intersect_', 'yy_kde_log_intersect_')
-                : base;
-        }
-
-        // Two labelled options rather than one button whose caption flips. A single
-        // toggle reading "Log scale" is ambiguous -- it could equally mean "you are
-        // looking at the log scale" or "press for the log scale" -- and the reader
-        // has no way to tell which axis they are on without checking the numbers.
-        // Here the lit segment always names the scale currently drawn.
-        function syncKdeToggle() {
-            const sw = document.getElementById('kdeScaleSwitch');
-            if (!sw) return;
-            sw.hidden = !LOG_VIEW;
-            const opts = sw.querySelectorAll('.kde-scale-opt');
-            opts.forEach(function (o, i) {
-                const on = (i === 1) === kdeLogOn;
-                o.classList.toggle('is-on', on);
-                o.setAttribute('aria-pressed', on ? 'true' : 'false');
-            });
-        }
-
-        // The choice persists as you move between cards. Flipping to log to read
-        // one motif and having it snap back on the next card would make comparing
-        // two motifs on the same scale impossible.
-        function setKdeScale(useLog) {
-            if (kdeLogOn === useLog) return;
-            kdeLogOn = useLog;
-            syncKdeToggle();
-            const img = document.getElementById('singletonModalKde');
-            if (img) img.src = kdeSrcFor(img.dataset.base || '');
-        }
-
         const upto = {{:upto}};
         const labels = {1: 'Motifs', 2: 'Generalization', 3: 'Statistics', 4: 'Readme'};
         // A consensus page has only two destinations, so it passes an explicit
